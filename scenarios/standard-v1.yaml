@@ -1,0 +1,80 @@
+# piplon scenario: standard-v1
+#
+# The canonical probe request. Every provider receives a translation of exactly
+# this conversation. Never edit this file in place: a change in content is a new
+# version (standard-v2.yaml), because every stored sample carries the scenario
+# version and comparisons across versions must never be silent.
+#
+# Sized for ~2 000 input tokens per turn and 20 output tokens, so that one
+# target probed every 60 s costs on the order of 1–3 USD per month.
+
+name: standard
+version: 1
+description: 3-turn conversation with 2 tool definitions, streamed, 20 output tokens.
+
+limits:
+  max_output_tokens: 20
+  temperature: 0
+  stream: true
+  timeout: 30s
+
+# Providers that support explicit prompt caching get cache markers on the
+# system prompt and on the first user turn. Turns 2 and 3 are expected to
+# report cache reads; a zero on a provider that supports caching is a miss.
+cache:
+  expect_hit_from_turn: 2
+
+system: |
+  You are a terse assistant used by an automated availability probe.
+  Answer in at most one short sentence. Do not call tools unless the user
+  explicitly asks for a tool result. Never add preamble.
+
+tools:
+  - name: get_time
+    description: Returns the current UTC time as an ISO-8601 string.
+    parameters:
+      type: object
+      properties: {}
+  - name: lookup_status
+    description: Returns the operational status of a named service.
+    parameters:
+      type: object
+      properties:
+        service:
+          type: string
+          description: Service identifier, for example "billing".
+      required: [service]
+
+# Padding is a fixed block of plain text appended to the system prompt to reach
+# the target input size deterministically. It is generated from a seed so every
+# probe sends byte-identical bytes.
+padding:
+  target_input_tokens: 2000
+  seed: piplon-standard-v1
+
+turns:
+  - role: user
+    content: "Reply with the single word READY."
+    expect:
+      contains: "READY"
+  - role: user
+    content: "Now reply with the single word STILL."
+    expect:
+      contains: "STILL"
+  - role: user
+    content: "Finally reply with the single word DONE."
+    expect:
+      contains: "DONE"
+
+# What a sample records for this scenario. The probe fills these; analyze reads them.
+measures:
+  - ttft_ms
+  - total_ms
+  - output_tokens
+  - tokens_per_s
+  - http_status
+  - provider_error
+  - stream_cut
+  - cache_read_tokens
+  - cache_write_tokens
+  - expect_ok

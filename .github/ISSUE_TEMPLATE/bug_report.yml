@@ -1,0 +1,36 @@
+name: Bug report
+description: Something piplon does is wrong.
+labels: ["bug", "triage"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: piplon version
+      description: Output of `piplon version`
+      placeholder: "0.1.0 (abc1234) darwin/arm64"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Config
+      description: Your `piplon.yaml` with keys and internal hostnames removed.
+      render: yaml
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: JSON log lines around the problem (`piplon run --log-format json`).
+      render: json
+  - type: dropdown
+    id: os
+    attributes:
+      label: Platform
+      options: ["macOS", "Linux", "Kubernetes", "Docker", "Other"]

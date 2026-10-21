@@ -1,0 +1,101 @@
+version: 2
+
+project_name: piplon
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: piplon
+    main: ./cmd/piplon
+    binary: piplon
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/piplon-sh/piplon/internal/version.Version={{.Version}}
+      - -X github.com/piplon-sh/piplon/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/piplon-sh/piplon/internal/version.Date={{.CommitDate}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, README.md, scenarios/*]
+
+checksum:
+  name_template: checksums.txt
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - cmd: cosign
+    certificate: "${artifact}.pem"
+    args: ["sign-blob", "--yes", "--output-certificate=${certificate}", "--output-signature=${signature}", "${artifact}"]
+    artifacts: checksum
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))?!?:.+$'
+      order: 0
+    - title: Fixes
+      regexp: '^.*?fix(\(.+\))?!?:.+$'
+      order: 1
+    - title: Other
+      order: 999
+  filters:
+    exclude: ["^chore\\(deps\\)", "^docs:", "^test:", "^ci:"]
+
+release:
+  github:
+    owner: piplon-sh
+    name: piplon
+  draft: true
+  prerelease: auto
+
+brews:
+  - repository:
+      owner: piplon-sh
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/piplon-sh/piplon
+    description: Independent blackbox probe for LLM provider APIs
+    license: Apache-2.0
+    test: |
+      system "#{bin}/piplon version"
+
+dockers:
+  - image_templates: ["ghcr.io/piplon-sh/piplon:{{ .Version }}-amd64"]
+    goarch: amd64
+    dockerfile: Dockerfile
+    use: buildx
+    extra_files: [scenarios]
+    build_flag_templates: ["--platform=linux/amd64"]
+  - image_templates: ["ghcr.io/piplon-sh/piplon:{{ .Version }}-arm64"]
+    goarch: arm64
+    dockerfile: Dockerfile
+    use: buildx
+    extra_files: [scenarios]
+    build_flag_templates: ["--platform=linux/arm64"]
+
+docker_manifests:
+  - name_template: ghcr.io/piplon-sh/piplon:{{ .Version }}
+    image_templates:
+      - ghcr.io/piplon-sh/piplon:{{ .Version }}-amd64
+      - ghcr.io/piplon-sh/piplon:{{ .Version }}-arm64
+  - name_template: ghcr.io/piplon-sh/piplon:latest
+    image_templates:
+      - ghcr.io/piplon-sh/piplon:{{ .Version }}-amd64
+      - ghcr.io/piplon-sh/piplon:{{ .Version }}-arm64
