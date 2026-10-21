@@ -1,0 +1,23 @@
+# binaries and build output
+/piplon
+/dist/
+/bin/
+*.exe
+*.test
+*.out
+
+# local data
+*.db
+*.db-wal
+*.db-shm
+piplon.yaml
+!docs/**/piplon.yaml
+!demo/piplon.yaml
+.env
+.env.*
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/
+*.swp

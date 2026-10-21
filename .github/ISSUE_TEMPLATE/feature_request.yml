@@ -1,0 +1,21 @@
+name: Feature request
+description: Something piplon should measure, output or support.
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to find out or do, and why piplon cannot today. Start from the pain, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: If you have one. Config snippet or CLI example welcome.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["probe / provider adapter", "analysis / alerting", "outputs (metrics, dashboard, notify)", "cli / config", "public site / agent", "docs", "other"]

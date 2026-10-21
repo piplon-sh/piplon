@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/piplon-sh/piplon/discussions
+    about: Questions, ideas and show-and-tell go in Discussions.
+  - name: Security issue
+    url: https://github.com/piplon-sh/piplon/security/advisories/new
+    about: Report vulnerabilities privately.

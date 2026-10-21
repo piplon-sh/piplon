@@ -1,0 +1,28 @@
+version: "2"
+run:
+  timeout: 5m
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    - revive
+    - gosec
+    - errorlint
+    - bodyclose
+    - noctx
+    - unconvert
+    - unparam
+  settings:
+    gosec:
+      excludes: [G204]
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+formatters:
+  enable: [gofmt, goimports]
