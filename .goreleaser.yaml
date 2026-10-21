@@ -81,11 +81,13 @@ dockers:
     goarch: amd64
     dockerfile: Dockerfile
     use: buildx
+    extra_files: [scenarios]
     build_flag_templates: ["--platform=linux/amd64"]
   - image_templates: ["ghcr.io/piplon-sh/piplon:{{ .Version }}-arm64"]
     goarch: arm64
     dockerfile: Dockerfile
     use: buildx
+    extra_files: [scenarios]
     build_flag_templates: ["--platform=linux/arm64"]
 
 docker_manifests:
