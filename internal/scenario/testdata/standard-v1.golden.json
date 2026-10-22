@@ -1,0 +1,61 @@
+{
+  "scenario": "standard-v1",
+  "limits": {
+    "max_output_tokens": 20,
+    "temperature": 0,
+    "stream": true
+  },
+  "cache": {
+    "expect_hit_from_turn": 2
+  },
+  "system": "You are a terse assistant used by an automated availability probe.\nAnswer in at most one short sentence. Do not call tools unless the user\nexplicitly asks for a tool result. Never add preamble.\n\nbank food learn map farm any box deep rest clear morning hot\nfly any across plant field food around grow front case among play\nriver learn red other good king answer cat look name act pass\nmade fly red first each point city carry milk any both only\nadd quiet black page first mind paper hour across all bad group\nleave even iron people many art book among lead after music bad\neye first idea morning far kind day above play horse night group\nbehind life feel cause paper night house every milk mean give down\nknew case more enough base near look feel animal milk build color\nand pass country act full down quiet plain play base inch down\nfeel name almost rule minute add change name fact food dream night\noff heat feel fact air end give island quiet island egg main\nduring door open food find eye more level fish bed full door\nboat first fire base cut came call fall front money close night\nrock build answer light farm blue come back game near early free\narea inch before check green front paper change about friend every hot\nbehind country floor minute need best glass ago check hold make level\nclear blue cause gold help head plant five near ocean cost also\nfour long hour body rain heat air hour behind day sail path\njust river iron rest high away after down country bed half about\nplain mark read cover day farm half center near list best bird\nnote quiet came act field long leave dream build more early ocean\nnote red line ready form heat made new best four glass left\nmore place boat hear rain left need old rain grow mark five\nfire father come end garden market long door horse room answer carry\nkeep all draw life fine hear land behind cross mean list deep\nplant horse color door class list edge line most look gold safe\nlight down came market point next low money plant path next more\nday fast north fire island name black grow pass care people idea\nback ever rain lead safe early near animal fill front cause open\ndry path busy king able hand far class friend run better rule\nlittle even iron room ago cross corn river rest color answer animal\nfill head less life made people page big foot rule high page\nground mark open check land many knew mind just floor house map\ncorn music sand glass cold large floor even bank part center main\ngive paper ever point keep again common best look note rain idea\nfact leave next rain bird both money did always again keep place\nmoney boy front eye door rock room need face move safe case\nlist bird keep hot head open mother farm mark before ball ocean\nsalt better last all and car behind bring age less main open\nchange find act free big off read large money any order end\nhour before base each plain feel ground sail away heat bank sand\nbook same fall change iron book rock above many look garden ask\nrain off rain down cut along port big form only live old\nocean page deep and rock come may air plant grow hour low\nmap lead market cross fill hot head cross north eat round mother\ncould early light cold center act road farm could open new new\nfire end open many half field may art path carry farm new\nmarket market main level fall eye before five day hand level island\npage cover same clear cover good learn art power often last fly\nhour dark foot play far point other easy make front horse fire\nanswer bank garden best edge fish did garden boy arm back minute\nevery hill care even all just green edge fly pass find first\nnight feel fine inch pass also most light edge check plan about\nplan front more power animal home give safe other rain class power\nlong during before same fill cost dry deep clear among did glass\ncity keep rule field near leave corn plain fire above day more\npath night map few idea carry day ball care part bring fine\nago draw earth and able lead last age and ball animal enough\nacross east life answer long pass often hot high behind cover bad\ndry place plan more minute good dry play fast path quiet note\niron base clear almost most change could salt king carry just down\never note black safe did fill every road hot cross green bed\nkeep air boat almost glass floor fine cover again mean deep level\nago also front little hold red come line air boat off earth\nhorse night often main name market check could red best cover off\nplay path around door air did body among far also little night\nsand more head other group blue bank plain life busy fall number\nhold once fire deep people other bed long run face corn only\nneed left point house heat game night care rain cost cost front\nmoon paper horse about full cut salt other off able market look\ngold rock move make cover among glass hot end big above look\nbetter edge green across even above half cross more corn next first\nmake mean island page cat deep care head build name grow play\ndid point leave also sand less bank main hour off green close\neasy late ground answer ground cook garden dry feel art home long\nlow eye sand hear busy add above people market more color may\nbird east part far full ball left best also kind arm make\nsand fly move food plain power made enough line five cook free\nkind fish make five late bring all room plant only fill eat\norder ground field car cut rest learn did money among end minute\nfather better always floor ago glass enough room king learn large better\nbody and group black make about high minute end level clear begin\nfree cold father egg fish find knew hill fill milk glass high\ndeep ever dry every dry page act food country call blue part\nend point hour behind king left area food moon earth country red\nfront foot five both did help made rest common morning number begin\nanimal east port fire also level fact black red better animal home\nbox back paper only need egg cause home letter boat near class\nabove page along area carry friend center mean plain inch red ask\ngold page day free mean late fast rest earth draw king carry\nmade all during path ground salt low bed hear color along level\nalways edge begin hour rock rain check kind gold big knew behind\ncut both paper fill art king dry care note need egg river\nduring always check draw back knew early egg four corn among bad\ngood after easy many low room open earth quiet hold bad feel\nlife carry help across idea egg make change drive left dream king\ncat boat end low come bird deep any animal island need often\ncare front part run made knew care head life class island salt\nboat fish drive dry floor hear able day play black boat form\nmake horse plant hill most any four little hour live late each\ndry never deep grow green quiet level care garden note carry face\ngold common country after also land eye morning horse high cover made\nfind back ocean head both give low head also country down line\narm low body music last door music path big house note light\ncross knew ball often clear full near low large dark friend five\nall form farm quiet people move off cat fire list port call\nblack come fact leave after round paper food could arm also could\nonly line plain fall father front fall full pass help sail iron\ndeep hard across change letter night game ready after fall north arm\nabove almost end level fill hard power end every easy minute look\nfood busy form form rule sand rock just place only down door\nabove group need bad may island make deep mark ready need fish\nboy number grow music main high page inch next able check always\nhalf once hour idea rule rule long game floor need drive piece\nall little light cover ask off plan center quiet fine case egg\nplace map add green corn cover day low plan ready few plant\nhear quiet paper never enough off city near knew arm center few\nnote check common ask art life corn cold before cut map salt\namong mother eye minute bring hand horse city build father market inch\ncar corn big east iron lead piece live even king run almost\ndown did moon river number did and form cross front bird house\njust care good almost little free map most plant same part power\nhour once minute best fact each black check pass easy far letter\ngreen able order idea dry often cook far level feel kind center\nmake dry enough front help cold number car end hand fill body\ndrive art fire rock may idea case class same mother build life\ncheck late best front class floor play pass along face change ball\nfield paper bank give hand cut along even page list dark salt\nhouse next away among ground order dream close home head back act\nany once move kind back better base mean bed cause island plant\namong gold fact dry red boat eat bank read morning other also\nalmost begin easy idea car give area eat power corn eye came\ncountry animal need car main door level best door gold river ground\ngive door cross able age off enough ball add read mean hand\nadd rule about come cost food ocean never early rock front near\ndrive same among most fine corn clear mind quiet class any made\nread people country look quiet kind power almost people east same cause\nonce eye north after door left good morning point face help next\ncall round draw road high came food earth fire cut people able\nlittle list cat room move check after music far hard game even\neat run knew during look edge money path and answer plain cat\nfield high fire iron friend common ago just almost level both green\nbest port once every less every friend draw field few art power\nround piece ocean left fire bad idea arm again across live bring\nrain field common more fall each good come green dream heat next\nlittle call pass big early rule list ever run never hard learn\ngame road area along off enough fast kind idea food power land\ncold high field main half build boat corn always letter earth sail\narm high play red head iron car old able horse milk corn\nmap cat almost edge same line base common four run half bring\ncity end friend earth blue could sand fly fine line rain ready\nmore piece ago keep order bank near about few edge plain path\nbox age ground money kind change boat face green quiet",
+  "tools": [
+    {
+      "name": "get_time",
+      "description": "Returns the current UTC time as an ISO-8601 string.",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      }
+    },
+    {
+      "name": "lookup_status",
+      "description": "Returns the operational status of a named service.",
+      "parameters": {
+        "properties": {
+          "service": {
+            "description": "Service identifier, for example \"billing\".",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service"
+        ],
+        "type": "object"
+      }
+    }
+  ],
+  "turns": [
+    {
+      "role": "user",
+      "content": "Reply with the single word READY.",
+      "expect": {
+        "contains": "READY"
+      }
+    },
+    {
+      "role": "user",
+      "content": "Now reply with the single word STILL.",
+      "expect": {
+        "contains": "STILL"
+      }
+    },
+    {
+      "role": "user",
+      "content": "Finally reply with the single word DONE.",
+      "expect": {
+        "contains": "DONE"
+      }
+    }
+  ]
+}
