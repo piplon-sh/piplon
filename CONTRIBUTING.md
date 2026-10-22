@@ -15,7 +15,7 @@ cd piplon
 make check      # build, vet, lint, test -race, govulncheck
 ```
 
-Go 1.24+. `make tools` installs `golangci-lint` and `govulncheck` if you do not have them.
+Go 1.26+. `make tools` installs `golangci-lint` and `govulncheck` if you do not have them.
 
 ## Making a change
 
