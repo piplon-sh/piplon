@@ -1,15 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
-	"path"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/piplon-sh/piplon/internal/scenario"
 	"github.com/piplon-sh/piplon/scenarios"
 )
 
@@ -35,13 +32,13 @@ func newScenarioCmd() *cobra.Command {
 	return cmd
 }
 
-// showScenario parses the embedded scenario and prints it back as YAML, so a
-// file that does not parse fails here rather than at probe time.
+// showScenario validates the embedded scenario, then prints the file parsed
+// back as YAML so its comments stay visible.
 func showScenario(cmd *cobra.Command, name string) error {
-	raw, err := scenarios.FS.ReadFile(name + ".yaml")
-	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("scenario %q not found; available: %s", name, availableScenarios())
+	if _, err := scenario.Load(name); err != nil {
+		return err
 	}
+	raw, err := scenarios.FS.ReadFile(name + ".yaml")
 	if err != nil {
 		return fmt.Errorf("scenario %s: %w", name, err)
 	}
@@ -55,13 +52,4 @@ func showScenario(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("scenario %s: print: %w", name, err)
 	}
 	return enc.Close()
-}
-
-func availableScenarios() string {
-	files, _ := fs.Glob(scenarios.FS, "*.yaml")
-	names := make([]string, len(files))
-	for i, f := range files {
-		names[i] = strings.TrimSuffix(path.Base(f), ".yaml")
-	}
-	return strings.Join(names, ", ")
 }
