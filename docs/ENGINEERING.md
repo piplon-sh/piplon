@@ -39,7 +39,7 @@ Standard library first. Allowed without discussion: `cobra`, `modernc.org/sqlite
 
 ## Code
 
-- Go 1.24+. `gofmt`, `go vet`, `golangci-lint` (`.golangci.yml`), `govulncheck`, `go test -race`. `make check` runs all of it.
+- Go 1.26+. `gofmt`, `go vet`, `golangci-lint` (`.golangci.yml`), `govulncheck`, `go test -race`. `make check` runs all of it.
 - Errors are wrapped with context: `fmt.Errorf("probe %s: %w", target.Name, err)`. Sentinel errors live in each package's `errors.go`.
 - Logging is `log/slog`. JSON by default, text on a TTY. Never a key, never a full prompt. Always the target name and scenario version.
 - Context cancellation everywhere. `piplon run` exits cleanly within 5 s of SIGINT.
