@@ -42,7 +42,7 @@ It learns a baseline per hour and weekday, opens and closes incidents, and tells
 ```
 $ piplon run
 
-piplon 0.1.0 · standard-v1 · 3 targets · every 5 m · budget 2.00 USD/day
+piplon 0.1.0 · standard-v1 · 3 targets · every 5 m · budget 5.00 USD/day
 
 TARGET                 STATE       TTFT p50   ERR 1h   CACHE   LAST
 anthropic-direct       ok          412 ms     0.0 %    hit     3 s ago
@@ -72,24 +72,27 @@ Container images and a Helm chart follow the first release.
 scenario: standard-v1
 interval: 5m           # default for every target; 10s to 1h, your call
 budget:
-  daily_usd: 2.00      # circuit breaker: probing stops when reached
+  daily_usd: 5.00      # circuit breaker: probing stops when reached
 targets:
   - name: anthropic-direct
     format: anthropic
     url: https://api.anthropic.com
-    model: claude-sonnet-4-5
+    model: claude-haiku-4-5
     key: ${ANTHROPIC_API_KEY}
+    price: {input: 1.00, output: 5.00, cache_read: 0.10, cache_write: 1.25}  # USD per Mtok
   - name: anthropic-via-gateway
     format: openai
     url: https://litellm.internal/v1
-    model: claude-sonnet-4-5
+    model: claude-haiku-4-5
     key: ${LITELLM_KEY}
     compare_with: anthropic-direct
+    price: {input: 1.00, output: 5.00, cache_read: 0.10, cache_write: 1.25}
   - name: bedrock-eu-west-1
     format: bedrock
     region: eu-west-1
-    model: anthropic.claude-sonnet-4-5
+    model: anthropic.claude-haiku-4-5
     interval: 15m        # per-target override: probe this one less often
+    price: {input: 1.00, output: 5.00, cache_read: 0.10, cache_write: 1.25}
 notify:
   slack: ${SLACK_WEBHOOK}
 ```
@@ -114,7 +117,7 @@ USD per target per day, at list prices. The low end is with the prompt cache hit
 
 To watch availability and latency, probe a Haiku-class model: it measures the same path for a fraction of the cost. Everything that drives cost is yours to set: the interval globally and per target, the scenario, the number of targets, and the budget cap.
 
-`budget.daily_usd` is a circuit breaker, not a forecast. When the estimated daily spend reaches it, piplon stops probing and reports that as its own state rather than overspending. The default of 2.00 USD per day covers about two Haiku-class targets at the default interval; raise it to match your targets. Set `price` on each target, in USD per million tokens (for example `price: {input: 1.00, output: 5.00, cache_read: 0.10, cache_write: 1.25}`), so the estimate matches what you pay: without it, piplon assumes Sonnet-class prices.
+`budget.daily_usd` is a circuit breaker, not a forecast. When the estimated daily spend reaches it, piplon stops probing and reports that as its own state rather than overspending. The default of 5.00 USD per day covers about three to five Haiku-class targets at the default interval; raise it to match your targets. Set `price` on each target, in USD per million tokens (for example `price: {input: 1.00, output: 5.00, cache_read: 0.10, cache_write: 1.25}`), so the estimate matches what you pay: without it, piplon assumes Sonnet-class prices.
 
 ## Outputs
 

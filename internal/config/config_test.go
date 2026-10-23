@@ -41,7 +41,7 @@ func TestParseMinimalAppliesDefaults(t *testing.T) {
 		{"timeout", cfg.Timeout, 30 * time.Second},
 		{"jitter", cfg.Jitter, 5 * time.Second},
 		{"concurrency", cfg.Concurrency, 4},
-		{"budget", cfg.Budget.DailyUSD, 2.00},
+		{"budget", cfg.Budget.DailyUSD, 5.00},
 		{"store.path", cfg.Store.Path, "./piplon.db"},
 		{"store.retention", cfg.Store.Retention, Duration(90 * 24 * time.Hour)},
 		{"target interval", cfg.Targets[0].Interval, 5 * time.Minute},

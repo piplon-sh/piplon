@@ -18,7 +18,7 @@
 //
 // Defaults: scenario standard-v1, interval 5m (10s..1h, overridable per
 // target), timeout 30s (1s..5m), jitter 5s (below interval), concurrency 4
-// (1..64), budget.daily_usd 2.00 (> 0), store.path ./piplon.db,
+// (1..64), budget.daily_usd 5.00 (> 0), store.path ./piplon.db,
 // store.retention 90d (>= 1d).
 //
 // Each target may set price (USD per million tokens: input, output,

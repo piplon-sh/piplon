@@ -43,6 +43,7 @@ Goal: piplon.sh shows a world map with 3 official probes and the first community
 - [ ] piplon.sh: map, provider table with 90-day bars, incidents, weekly reliability ranking, open dataset (CSV + JSON, CC-BY-4.0)
 - [ ] 3 official probes: Frankfurt, Ashburn, Singapore (≈5 €/month VPS each)
 - [ ] Sponsors button, Open Collective, "sponsor a probe city"
+- [ ] light-v1 scenario: 1 turn, ~300 tokens, availability and latency only, about 1 USD/month per target on a Haiku-class model every 15 min
 
 ## v0.3: depth (weeks 9-13)
 
