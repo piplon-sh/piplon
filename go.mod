@@ -2,6 +2,8 @@ module github.com/piplon-sh/piplon
 
 go 1.26.0
 
+toolchain go1.26.1
+
 require (
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/yaml.v3 v3.0.1
