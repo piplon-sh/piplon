@@ -20,4 +20,8 @@
 // target), timeout 30s (1s..5m), jitter 5s (below interval), concurrency 4
 // (1..64), budget.daily_usd 1.00 (> 0), store.path ./piplon.db,
 // store.retention 90d (>= 1d).
+//
+// Each target may set price (USD per million tokens: input, output,
+// cache_read, cache_write, all >= 0). Without a price block a target gets
+// DefaultPrice, deliberately high; inside a block, omitted fields are 0.
 package config

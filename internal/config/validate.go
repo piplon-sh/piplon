@@ -151,6 +151,17 @@ func checkTarget(t Target, cfg *Config, names map[string]int) []problem {
 	} else if t.Interval <= cfg.Jitter {
 		add("interval", invalid("%v must be greater than jitter %v", t.Interval, cfg.Jitter))
 	}
+	for _, f := range []struct {
+		field string
+		usd   float64
+	}{
+		{"price.input", t.Price.Input}, {"price.output", t.Price.Output},
+		{"price.cache_read", t.Price.CacheRead}, {"price.cache_write", t.Price.CacheWrite},
+	} {
+		if f.usd < 0 {
+			add(f.field, invalid("must be at least 0"))
+		}
+	}
 	switch _, ok := names[t.CompareWith]; {
 	case t.CompareWith == "":
 	case t.CompareWith == t.Name:
