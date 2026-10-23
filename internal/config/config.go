@@ -72,11 +72,11 @@ type Store struct {
 func defaults() *Config {
 	return &Config{
 		Scenario:    "standard-v1",
-		Interval:    60 * time.Second,
+		Interval:    5 * time.Minute,
 		Timeout:     30 * time.Second,
 		Jitter:      5 * time.Second,
 		Concurrency: 4,
-		Budget:      Budget{DailyUSD: 1.00},
+		Budget:      Budget{DailyUSD: 2.00},
 		Store:       Store{Path: "./piplon.db", Retention: Duration(90 * 24 * time.Hour)},
 	}
 }

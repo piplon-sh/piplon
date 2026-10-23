@@ -5,8 +5,10 @@
 # version (standard-v2.yaml), because every stored sample carries the scenario
 # version and comparisons across versions must never be silent.
 #
-# Sized for ~2 000 input tokens per turn and 20 output tokens, so that one
-# target probed every 60 s costs on the order of 1–3 USD per month.
+# Sized for ~2 000 input tokens per turn and 20 output tokens. One target costs
+# roughly 0.30 to 26 USD per day depending on model and interval; a Haiku-class
+# model every 5 min costs about 0.85 to 1.75 USD per day. See "What it costs"
+# in README.md.
 
 name: standard
 version: 1

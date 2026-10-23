@@ -37,14 +37,14 @@ func TestParseMinimalAppliesDefaults(t *testing.T) {
 		got, want any
 	}{
 		{"scenario", cfg.Scenario, "standard-v1"},
-		{"interval", cfg.Interval, 60 * time.Second},
+		{"interval", cfg.Interval, 5 * time.Minute},
 		{"timeout", cfg.Timeout, 30 * time.Second},
 		{"jitter", cfg.Jitter, 5 * time.Second},
 		{"concurrency", cfg.Concurrency, 4},
-		{"budget", cfg.Budget.DailyUSD, 1.00},
+		{"budget", cfg.Budget.DailyUSD, 2.00},
 		{"store.path", cfg.Store.Path, "./piplon.db"},
 		{"store.retention", cfg.Store.Retention, Duration(90 * 24 * time.Hour)},
-		{"target interval", cfg.Targets[0].Interval, 60 * time.Second},
+		{"target interval", cfg.Targets[0].Interval, 5 * time.Minute},
 		{"target key", cfg.Targets[0].Key.Reveal(), "sk-test"},
 		{"target price", *cfg.Targets[0].Price, DefaultPrice},
 	}
@@ -243,7 +243,7 @@ func TestParseErrors(t *testing.T) {
 		},
 		{
 			name:    "jitter not below interval",
-			yaml:    "jitter: 60s\n" + target(okTarget),
+			yaml:    "interval: 60s\njitter: 60s\n" + target(okTarget),
 			wantErr: ErrInvalid,
 			wantMsg: "jitter: 1m0s must be at least 0 and below interval 1m0s",
 		},

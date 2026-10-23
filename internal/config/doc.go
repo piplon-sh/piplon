@@ -16,9 +16,9 @@
 // or empty is an error. Keys and webhook URLs are held as Secret, which renders
 // as [redacted] in fmt, slog and YAML; error messages never echo user values.
 //
-// Defaults: scenario standard-v1, interval 60s (10s..1h, overridable per
+// Defaults: scenario standard-v1, interval 5m (10s..1h, overridable per
 // target), timeout 30s (1s..5m), jitter 5s (below interval), concurrency 4
-// (1..64), budget.daily_usd 1.00 (> 0), store.path ./piplon.db,
+// (1..64), budget.daily_usd 2.00 (> 0), store.path ./piplon.db,
 // store.retention 90d (>= 1d).
 //
 // Each target may set price (USD per million tokens: input, output,
