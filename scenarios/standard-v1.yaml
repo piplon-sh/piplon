@@ -6,9 +6,10 @@
 # version and comparisons across versions must never be silent.
 #
 # Sized for ~2 000 input tokens per turn and 20 output tokens. One target costs
-# roughly 0.30 to 26 USD per day depending on model and interval; a Haiku-class
-# model every 5 min costs about 0.85 to 1.75 USD per day. See "What it costs"
-# in README.md.
+# roughly 0.60 to 26 USD per day depending on model and interval; a Haiku-class
+# model every 5 min costs about 1.75 USD per day. Models whose minimum cacheable
+# prompt exceeds ~2 000 tokens (Haiku 4.5: 4 096) never cache this scenario.
+# See "What it costs" in README.md.
 
 name: standard
 version: 1

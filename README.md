@@ -106,18 +106,18 @@ piplon agent --join        # put your city on the public map (opt-in, aggregates
 
 ## What it costs
 
-Probes are real requests, so they cost tokens. With `standard-v1` (about 2 000 input tokens per turn, 3 turns), one target costs roughly **0.30 to 26 USD per day**, depending on the model and the interval:
+Probes are real requests, so they cost tokens. With `standard-v1` (about 2 000 input tokens per turn, 3 turns), one target costs roughly **0.60 to 26 USD per day**, depending on the model and the interval:
 
 | Model | every 15 min | every 5 min (default) | every 60 s |
 |---|---|---|---|
-| Haiku 4.5 | 0.30 – 0.60 | 0.85 – 1.75 | 1.20 – 8.60 |
+| Haiku 4.5 | 0.60 | 1.75 | 8.60 |
 | Sonnet 4.5 | 0.85 – 1.75 | 2.60 – 5.20 | 3.50 – 26 |
 
-USD per target per day, at list prices. The low end is with the prompt cache hit on turns 2 and 3 (and on turn 1 at 60 s, while the cache is still warm); the high end is without caching, for example through a gateway that drops cache markers.
+USD per target per day, at list prices. For Sonnet 4.5, the low end is with the prompt cache hit on turns 2 and 3 (and on turn 1 at 60 s, while the cache is still warm); the high end is without caching, for example through a gateway that drops cache markers. Haiku 4.5 only caches prompts of 4 096 tokens or more, so it never caches `standard-v1` and has a single figure.
 
-To watch availability and latency, probe a Haiku-class model: it measures the same path for a fraction of the cost. Everything that drives cost is yours to set: the interval globally and per target, the scenario, the number of targets, and the budget cap.
+To watch availability and latency, probe a Haiku-class model: it measures the same path for a fraction of the cost. To watch prompt caching, probe a model whose minimum cacheable prompt fits the scenario, such as Sonnet 4.5; a target that never cached shows its cache as `n/a`, not as a miss. Everything that drives cost is yours to set: the interval globally and per target, the scenario, the number of targets, and the budget cap.
 
-`budget.daily_usd` is a circuit breaker, not a forecast. When the estimated daily spend reaches it, piplon stops probing and reports that as its own state rather than overspending. The default of 5.00 USD per day covers about three to five Haiku-class targets at the default interval; raise it to match your targets. Set `price` on each target, in USD per million tokens (for example `price: {input: 1.00, output: 5.00, cache_read: 0.10, cache_write: 1.25}`), so the estimate matches what you pay: without it, piplon assumes Sonnet-class prices.
+`budget.daily_usd` is a circuit breaker, not a forecast. When the estimated daily spend reaches it, piplon stops probing and reports that as its own state rather than overspending. The default of 5.00 USD per day covers the example above (about 4.10 USD per day) with some margin; raise it to match your targets. Set `price` on each target, in USD per million tokens (for example `price: {input: 1.00, output: 5.00, cache_read: 0.10, cache_write: 1.25}`), so the estimate matches what you pay: without it, piplon assumes Sonnet-class prices.
 
 ## Outputs
 
