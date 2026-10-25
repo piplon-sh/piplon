@@ -37,15 +37,16 @@ func TestParseMinimalAppliesDefaults(t *testing.T) {
 		got, want any
 	}{
 		{"scenario", cfg.Scenario, "standard-v1"},
-		{"interval", cfg.Interval, 60 * time.Second},
+		{"interval", cfg.Interval, 5 * time.Minute},
 		{"timeout", cfg.Timeout, 30 * time.Second},
 		{"jitter", cfg.Jitter, 5 * time.Second},
 		{"concurrency", cfg.Concurrency, 4},
-		{"budget", cfg.Budget.DailyUSD, 1.00},
+		{"budget", cfg.Budget.DailyUSD, 5.00},
 		{"store.path", cfg.Store.Path, "./piplon.db"},
 		{"store.retention", cfg.Store.Retention, Duration(90 * 24 * time.Hour)},
-		{"target interval", cfg.Targets[0].Interval, 60 * time.Second},
+		{"target interval", cfg.Targets[0].Interval, 5 * time.Minute},
 		{"target key", cfg.Targets[0].Key.Reveal(), "sk-test"},
+		{"target price", *cfg.Targets[0].Price, DefaultPrice},
 	}
 	for _, c := range checks {
 		if c.got != c.want {
@@ -242,7 +243,7 @@ func TestParseErrors(t *testing.T) {
 		},
 		{
 			name:    "jitter not below interval",
-			yaml:    "jitter: 60s\n" + target(okTarget),
+			yaml:    "interval: 60s\njitter: 60s\n" + target(okTarget),
 			wantErr: ErrInvalid,
 			wantMsg: "jitter: 1m0s must be at least 0 and below interval 1m0s",
 		},
@@ -282,6 +283,12 @@ func TestParseErrors(t *testing.T) {
 			wantMsg: `scenario: "standard-v9" is not a shipped scenario`,
 		},
 		{
+			name:    "negative price",
+			yaml:    target(okTarget + "    price: {input: -1}\n"),
+			wantErr: ErrInvalid,
+			wantMsg: "target t1: price.input: must be at least 0",
+		},
+		{
 			name:    "notify env var missing",
 			yaml:    target(okTarget) + "notify:\n  slack: ${SLACK_WEBHOOK}\n",
 			wantErr: ErrMissingEnv,
@@ -307,6 +314,17 @@ func TestParseErrors(t *testing.T) {
 				t.Errorf("error %q\ndoes not contain %q", err, tt.wantMsg)
 			}
 		})
+	}
+}
+
+func TestPartialPriceLeavesOmittedFieldsAtZero(t *testing.T) {
+	cfg, err := Parse([]byte(target(okTarget+"    price: {input: 0.5, output: 2}\n")), env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Price{Input: 0.5, Output: 2}
+	if got := *cfg.Targets[0].Price; got != want {
+		t.Errorf("price: got %+v, want %+v", got, want)
 	}
 }
 

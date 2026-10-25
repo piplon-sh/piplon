@@ -27,7 +27,7 @@ Change these with an ADR in `docs/adr/`, not in a PR comment.
 - **The scenario is data.** `scenarios/standard-v1.yaml` defines the conversation, tools and expected shape. Adapters translate it to each provider's wire format. The scenario version is stored with every sample.
 - **Keys never leave the host.** Read from env or files, held in memory per request, never logged, never stored, never pushed.
 - **Everything that costs is configurable.** Interval is global with a per-target override, scenario is selectable, concurrency and timeouts are explicit.
-- **Budget cap on by default.** `budget.daily_usd` defaults to 1.00. Reaching it stops probing and is reported as its own state, not as an outage.
+- **Budget cap on by default.** `budget.daily_usd` defaults to 5.00. Reaching it stops probing and is reported as its own state, not as an outage.
 - **Baseline before alerting.** Nothing "slow" fires before 24 h of history for that target. Hard failures (5xx, timeouts, model gone) fire immediately.
 - **TTFT is measured from request fully written to first content delta.** Not first byte.
 - **No telemetry.** The only outbound data is what `agent --join` sends, and that is opt-in, aggregates only.

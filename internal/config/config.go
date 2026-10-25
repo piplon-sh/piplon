@@ -39,7 +39,21 @@ type Target struct {
 	Region      string        `yaml:"region"`
 	Interval    time.Duration `yaml:"interval"` // inherited from Config.Interval when unset
 	CompareWith string        `yaml:"compare_with"`
+	Price       *Price        `yaml:"price"` // never nil after Parse
 }
+
+// Price is what a target charges, in USD per million tokens. InputTokens are
+// the uncached ones; cache reads and writes are priced separately.
+type Price struct {
+	Input      float64 `yaml:"input"`
+	Output     float64 `yaml:"output"`
+	CacheRead  float64 `yaml:"cache_read"`
+	CacheWrite float64 `yaml:"cache_write"`
+}
+
+// DefaultPrice applies to targets without a price block. It is deliberately
+// high so a missing price overestimates cost instead of overspending.
+var DefaultPrice = Price{Input: 3.00, Output: 15.00, CacheRead: 0.30, CacheWrite: 3.75}
 
 // Notify holds the notification channels. Webhook URLs embed tokens, so they
 // are Secrets.
@@ -58,11 +72,11 @@ type Store struct {
 func defaults() *Config {
 	return &Config{
 		Scenario:    "standard-v1",
-		Interval:    60 * time.Second,
+		Interval:    5 * time.Minute,
 		Timeout:     30 * time.Second,
 		Jitter:      5 * time.Second,
 		Concurrency: 4,
-		Budget:      Budget{DailyUSD: 1.00},
+		Budget:      Budget{DailyUSD: 5.00},
 		Store:       Store{Path: "./piplon.db", Retention: Duration(90 * 24 * time.Hour)},
 	}
 }
@@ -94,6 +108,10 @@ func Parse(data []byte, lookup func(string) (string, bool)) (*Config, error) {
 	for i := range cfg.Targets {
 		if cfg.Targets[i].Interval == 0 {
 			cfg.Targets[i].Interval = cfg.Interval
+		}
+		if cfg.Targets[i].Price == nil {
+			p := DefaultPrice
+			cfg.Targets[i].Price = &p
 		}
 	}
 	errs = append(errs, validate(cfg)...)
