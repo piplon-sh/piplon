@@ -8,6 +8,15 @@
 // implement Prober. Turn.InputTokens counts uncached input only; adapters
 // normalize providers that include cached tokens in their input count.
 //
+// Anthropic is the adapter for the Anthropic Messages API. It streams every
+// turn, puts prompt-cache markers on the system prompt and the first user
+// turn, and replays the real answers as history. Per turn it records TTFT
+// from the request being fully written to the first content delta, usage and
+// cache tokens, HTTP and provider errors, and a cut stream (closed before
+// message_stop). A transport, HTTP or stream failure ends the conversation; an
+// answer that misses its expectation does not, so cache reads on later turns
+// are still measured. Errors never contain the key.
+//
 // Scheduler runs one Job per target until its context is cancelled:
 //
 //   - a probe at start, then one per Job.Interval;
