@@ -2,8 +2,8 @@
 
 These files are **synthetic**: written by hand from the documented Chat
 Completions streaming format, not recorded from a live API. They contain no
-keys, organisation ids or real completion ids. Replacing them with scrubbed
-recordings is tracked in the roadmap (replay tests from recorded fixtures).
+keys, organisation ids or real completion ids. Real answers live
+next to them in `recorded/`, see below.
 
 | File | What it stands for |
 |---|---|
@@ -20,3 +20,19 @@ recordings is tracked in the roadmap (replay tests from recorded fixtures).
 
 Regenerate the two golden files with `go test ./internal/probe -run Golden -update`
 only when the request format is meant to change.
+
+## Recorded answers
+
+`recorded/turnN.sse` are real streamed answers to `standard-v1`, saved by a
+development tool that is not part of the piplon binary. Response headers are
+never saved, provider ids are replaced with `…scrubbed`, and the tool writes
+nothing if a turn fails or a body contains the key. One recording costs one
+real probe, a few cents:
+
+```sh
+OPENAI_API_KEY=... go run ./tools/record --format openai --model gpt-4o-mini
+```
+
+The replay test (`go test ./internal/probe -run Recorded`) is skipped until
+recordings exist. It checks what any real success must show and logs the
+numbers rather than pinning them.
