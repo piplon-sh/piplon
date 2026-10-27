@@ -20,6 +20,10 @@ limits:
   temperature: 0
   stream: true
   timeout: 30s
+  # Input tokens of one turn on claude-sonnet-4-5, to be confirmed by a
+  # recording (tools/record). Only the daily budget estimate uses it;
+  # re-measure it whenever the request bytes change.
+  input_tokens: 2000
 
 # Providers that support explicit prompt caching get cache markers on the
 # system prompt and on the first user turn. Turns 2 and 3 are expected to
@@ -48,11 +52,12 @@ tools:
           description: Service identifier, for example "billing".
       required: [service]
 
-# Padding is a fixed block of plain text appended to the system prompt to reach
-# the target input size deterministically. It is generated from a seed so every
-# probe sends byte-identical bytes.
+# Padding is an inventory of fictional services appended to the system prompt
+# to reach the input size. It is generated from a seed so every probe sends
+# byte-identical bytes. A recording with 95 rows measured 4 012 tokens on
+# claude-sonnet-4-5, about 34 per row; 34 rows aim for about 2 000.
 padding:
-  target_input_tokens: 2000
+  rows: 34
   seed: piplon-standard-v1
 
 turns:

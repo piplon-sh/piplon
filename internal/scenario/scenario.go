@@ -37,6 +37,9 @@ type Limits struct {
 	Temperature     float64       `yaml:"temperature" json:"temperature"`
 	Stream          bool          `yaml:"stream" json:"stream"`
 	Timeout         time.Duration `yaml:"timeout" json:"-"`
+	// InputTokens is the measured input size of one turn, used only to
+	// estimate cost against the daily budget.
+	InputTokens int `yaml:"input_tokens" json:"input_tokens"`
 }
 
 // Cache says from which turn a prompt-cache read is expected; 0 means never.
@@ -53,8 +56,8 @@ type Tool struct {
 
 // Padding sizes the deterministic filler appended to the system prompt.
 type Padding struct {
-	TargetInputTokens int    `yaml:"target_input_tokens"`
-	Seed              string `yaml:"seed"`
+	Rows int    `yaml:"rows"`
+	Seed string `yaml:"seed"`
 }
 
 // Turn is one user message and what its answer must contain.
@@ -121,18 +124,9 @@ func Parse(data []byte) (*Scenario, error) {
 	if err := s.validate(); err != nil {
 		return nil, err
 	}
-	s.padding = padding(s.Padding.Seed, s.Padding.TargetInputTokens-estimateTokens(s.baseText()))
+	s.padding = padding(s.Padding.Seed, s.Padding.Rows)
 	return &s, nil
 }
-
-// baseText is what turn 1 sends besides the padding, used to size it.
-func (s *Scenario) baseText() string {
-	tools, _ := json.Marshal(s.Tools) // maps of YAML scalars always marshal
-	return s.System + string(tools) + s.Turns[0].Content
-}
-
-// estimateTokens is the fixed 4-bytes-per-token estimate used to size padding.
-func estimateTokens(text string) int { return (len(text) + 3) / 4 }
 
 // rendered is the canonical, provider-neutral form of a scenario. Field order
 // here is the byte order of the golden file.
