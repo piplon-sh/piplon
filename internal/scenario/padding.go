@@ -3,51 +3,71 @@ package scenario
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"strings"
 )
 
-const wordsPerLine = 12
+// inventoryHeader opens the padding and names the row columns.
+const inventoryHeader = "Service inventory (name | region | status | latency | replicas):"
 
-// padding returns n words drawn from words by a SHA-256 stream over seed.
+// maxRowTokens bounds the estimated tokens one row adds. The longest row
+// (notifications-999, ap-southeast-1, maintenance, p50 275 ms, p99 1295 ms,
+// 9 replicas) is 89 bytes with its newline, 23 tokens.
+const maxRowTokens = 24
+
+// padding returns an inventory of fictional services, a header then one row
+// per line, as long as it fits in budget estimated tokens. Rows come from a
+// SHA-256 stream over seed, so a larger budget extends a smaller one.
 // The algorithm is frozen: changing it changes every scenario's bytes.
-func padding(seed string, n int) string {
-	var b strings.Builder
-	var block [sha256.Size]byte
-	for i := range n {
-		if i%sha256.Size == 0 {
-			in := binary.BigEndian.AppendUint64([]byte(seed), uint64(i/sha256.Size))
-			block = sha256.Sum256(in)
-		}
-		switch {
-		case i == 0:
-		case i%wordsPerLine == 0:
-			b.WriteByte('\n')
-		default:
-			b.WriteByte(' ')
-		}
-		b.WriteString(words[block[i%sha256.Size]])
+func padding(seed string, budget int) string {
+	if estimateTokens(inventoryHeader) > budget {
+		return ""
 	}
-	return b.String()
+	r := hashStream{seed: seed}
+	var b strings.Builder
+	b.WriteString(inventoryHeader)
+	for i := 1; ; i++ {
+		p50 := 20 + int(r.next())
+		row := fmt.Sprintf("\n%s-%03d | %s | %s | p50 %d ms | p99 %d ms | %d replicas",
+			services[r.next()%32], i, regions[r.next()%16], statuses[r.next()%8],
+			p50, p50+4*int(r.next()), 2+r.next()%8)
+		if estimateTokens(b.String()+row) > budget {
+			return b.String()
+		}
+		b.WriteString(row)
+	}
 }
 
-// words has exactly 256 entries so one hash byte picks one word without bias.
-// Common lower-case English words, each a single token for major tokenizers.
-// Frozen: editing this list changes every scenario's bytes.
-var words = [256]string{
-	"able", "about", "above", "across", "act", "add", "after", "again", "age", "ago", "air", "all", "almost", "along", "also", "always",
-	"among", "and", "animal", "answer", "any", "area", "arm", "around", "art", "ask", "away", "back", "bad", "ball", "bank", "base",
-	"bed", "before", "begin", "behind", "best", "better", "big", "bird", "black", "blue", "boat", "body", "book", "both", "box", "boy",
-	"bring", "build", "busy", "call", "came", "car", "care", "carry", "case", "cat", "cause", "center", "change", "check", "city", "class",
-	"clear", "close", "cold", "color", "come", "common", "cook", "corn", "cost", "could", "country", "cover", "cross", "cut", "dark", "day",
-	"deep", "did", "door", "down", "draw", "dream", "drive", "dry", "during", "each", "early", "earth", "east", "easy", "eat", "edge",
-	"egg", "end", "enough", "even", "ever", "every", "eye", "face", "fact", "fall", "far", "farm", "fast", "father", "feel", "few",
-	"field", "fill", "find", "fine", "fire", "first", "fish", "five", "floor", "fly", "food", "foot", "form", "four", "free", "friend",
-	"front", "full", "game", "garden", "give", "glass", "gold", "good", "green", "ground", "group", "grow", "half", "hand", "hard", "head",
-	"hear", "heat", "help", "high", "hill", "hold", "home", "horse", "hot", "hour", "house", "idea", "inch", "iron", "island", "just",
-	"keep", "kind", "king", "knew", "land", "large", "last", "late", "lead", "learn", "leave", "left", "less", "letter", "level", "life",
-	"light", "line", "list", "little", "live", "long", "look", "low", "made", "main", "make", "many", "map", "mark", "market", "may",
-	"mean", "milk", "mind", "minute", "money", "moon", "more", "morning", "most", "mother", "move", "music", "name", "near", "need", "never",
-	"new", "next", "night", "north", "note", "number", "ocean", "off", "often", "old", "once", "only", "open", "order", "other", "page",
-	"paper", "part", "pass", "path", "people", "piece", "place", "plain", "plan", "plant", "play", "point", "port", "power", "quiet", "rain",
-	"read", "ready", "red", "rest", "river", "road", "rock", "room", "round", "rule", "run", "safe", "sail", "salt", "same", "sand",
+// hashStream yields the bytes of SHA-256(seed ‖ uint64BE(0)), then of
+// SHA-256(seed ‖ uint64BE(1)), and so on.
+type hashStream struct {
+	seed  string
+	n     uint64
+	block [sha256.Size]byte
 }
+
+func (h *hashStream) next() byte {
+	i := h.n % sha256.Size
+	if i == 0 {
+		h.block = sha256.Sum256(binary.BigEndian.AppendUint64([]byte(h.seed), h.n/sha256.Size))
+	}
+	h.n++
+	return h.block[i]
+}
+
+// The list sizes are powers of two so one hash byte picks without bias.
+// Frozen: editing a list changes every scenario's bytes.
+var (
+	services = [32]string{
+		"auth", "billing", "checkout", "search", "catalog", "cart", "payments", "invoices",
+		"accounts", "profiles", "sessions", "orders", "shipping", "inventory", "pricing", "reviews",
+		"notifications", "email-sender", "sms-gateway", "media-store", "thumbnails", "exports", "imports", "audit-log",
+		"feature-flags", "rate-limiter", "api-gateway", "webhooks", "scheduler", "reporting", "ledger", "geo-lookup",
+	}
+	regions = [16]string{
+		"us-east-1", "us-east-2", "us-west-1", "us-west-2", "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1",
+		"eu-north-1", "ap-south-1", "ap-northeast-1", "ap-northeast-2", "ap-southeast-1", "ap-southeast-2", "ca-central-1", "sa-east-1",
+	}
+	// Repeats weight the healthy status, as in a real fleet.
+	statuses = [8]string{"healthy", "healthy", "healthy", "healthy", "healthy", "healthy", "degraded", "maintenance"}
+)
