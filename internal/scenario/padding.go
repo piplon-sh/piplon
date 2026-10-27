@@ -10,32 +10,26 @@ import (
 // inventoryHeader opens the padding and names the row columns.
 const inventoryHeader = "Service inventory (name | region | status | latency | replicas):"
 
-// maxRowTokens bounds the estimated tokens one row adds. The longest row
-// (notifications-999, ap-southeast-1, maintenance, p50 275 ms, p99 1295 ms,
-// 9 replicas) is 89 bytes with its newline, 23 tokens.
-const maxRowTokens = 24
+// maxRows keeps row numbers to three digits.
+const maxRows = 999
 
-// padding returns an inventory of fictional services, a header then one row
-// per line, as long as it fits in budget estimated tokens. Rows come from a
-// SHA-256 stream over seed, so a larger budget extends a smaller one.
+// padding returns an inventory of fictional services: a header, then rows
+// lines. Rows come from a SHA-256 stream over seed, so more rows extend fewer.
 // The algorithm is frozen: changing it changes every scenario's bytes.
-func padding(seed string, budget int) string {
-	if estimateTokens(inventoryHeader) > budget {
+func padding(seed string, rows int) string {
+	if rows < 1 {
 		return ""
 	}
 	r := hashStream{seed: seed}
 	var b strings.Builder
 	b.WriteString(inventoryHeader)
-	for i := 1; ; i++ {
+	for i := 1; i <= rows; i++ {
 		p50 := 20 + int(r.next())
-		row := fmt.Sprintf("\n%s-%03d | %s | %s | p50 %d ms | p99 %d ms | %d replicas",
+		fmt.Fprintf(&b, "\n%s-%03d | %s | %s | p50 %d ms | p99 %d ms | %d replicas",
 			services[r.next()%32], i, regions[r.next()%16], statuses[r.next()%8],
 			p50, p50+4*int(r.next()), 2+r.next()%8)
-		if estimateTokens(b.String()+row) > budget {
-			return b.String()
-		}
-		b.WriteString(row)
 	}
+	return b.String()
 }
 
 // hashStream yields the bytes of SHA-256(seed ‖ uint64BE(0)), then of

@@ -26,6 +26,12 @@ func (s *Scenario) validate() error {
 	if s.Limits.Timeout <= 0 {
 		bad("limits.timeout", "must be greater than 0")
 	}
+	if s.Limits.InputTokens < 1 {
+		bad("limits.input_tokens", "must be at least 1")
+	}
+	if r := s.Padding.Rows; r < 1 || r > maxRows {
+		bad("padding.rows", "%d is outside 1..%d", r, maxRows)
+	}
 	if s.Padding.Seed == "" {
 		bad("padding.seed", "is required")
 	}
@@ -51,13 +57,6 @@ func (s *Scenario) validate() error {
 		}
 		if t.Content == "" {
 			bad(fmt.Sprintf("turns[%d].content", i), "is required")
-		}
-	}
-	// Sizing needs turn 1, so it is checked only once the rest is sound.
-	if len(errs) == 0 {
-		if base := estimateTokens(s.baseText()); s.Padding.TargetInputTokens <= base {
-			bad("padding.target_input_tokens", "%d is below the estimated %d tokens of system, tools and turn 1",
-				s.Padding.TargetInputTokens, base)
 		}
 	}
 	return errors.Join(errs...)

@@ -101,10 +101,10 @@ func cost(p config.Price, turns []Turn) float64 {
 }
 
 // estimate is the worst-case cost of one probe of s: every turn at full
-// target size, uncached, with maximum output.
+// measured input size, uncached, with maximum output.
 func estimate(p config.Price, s *scenario.Scenario) float64 {
 	turns := float64(len(s.Turns))
-	in := turns * float64(s.Padding.TargetInputTokens)
+	in := turns * float64(s.Limits.InputTokens)
 	out := turns * float64(s.Limits.MaxOutputTokens)
 	return (in*p.Input + out*p.Output) / perMillion
 }

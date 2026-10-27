@@ -81,10 +81,8 @@ func TestPaddingSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	estimate := estimateTokens(s.baseText()) + estimateTokens(s.PaddingText())
-	target := s.Padding.TargetInputTokens
-	if estimate > target || estimate <= target-maxRowTokens {
-		t.Errorf("estimated turn-1 tokens: got %d, want within one row (%d) below %d", estimate, maxRowTokens, target)
+	if got := strings.Count(s.PaddingText(), "\n"); got != s.Padding.Rows {
+		t.Errorf("got %d rows, want padding.rows = %d", got, s.Padding.Rows)
 	}
 	if !strings.HasPrefix(s.SystemPrompt(), strings.TrimRight(s.System, "\n")+"\n\n") {
 		t.Error("system prompt must start with the scenario system text and a blank line")
@@ -97,13 +95,12 @@ func TestPaddingSize(t *testing.T) {
 var row = regexp.MustCompile(`^[a-z]+(-[a-z]+)*-\d{3} \| [a-z]+-[a-z]+-\d \| (healthy|degraded|maintenance) \| p50 \d+ ms \| p99 \d+ ms \| \d+ replicas$`)
 
 func TestPaddingIsAnInventory(t *testing.T) {
-	a := padding("seed-a", 500)
-	lines := strings.Split(a, "\n")
+	lines := strings.Split(padding("seed-a", 100), "\n")
 	if lines[0] != inventoryHeader {
 		t.Fatalf("first line %q, want the inventory header", lines[0])
 	}
-	if len(lines) < 10 {
-		t.Fatalf("got %d lines for 500 tokens, want many rows", len(lines))
+	if len(lines) != 101 {
+		t.Fatalf("got %d lines for 100 rows, want the header and 100 rows", len(lines))
 	}
 	seen := map[string]bool{}
 	for i, l := range lines[1:] {
@@ -116,24 +113,21 @@ func TestPaddingIsAnInventory(t *testing.T) {
 		}
 		seen[name] = true
 	}
-	if got := estimateTokens(a); got > 500 {
-		t.Errorf("padding estimated at %d tokens, over its 500 budget", got)
-	}
 }
 
 func TestPaddingIsDeterministic(t *testing.T) {
-	a := padding("seed-a", 500)
-	if a != padding("seed-a", 500) {
+	a := padding("seed-a", 50)
+	if a != padding("seed-a", 50) {
 		t.Error("same seed must give the same padding")
 	}
-	if a == padding("seed-b", 500) {
+	if a == padding("seed-b", 50) {
 		t.Error("different seeds must give different padding")
 	}
-	if !strings.HasPrefix(padding("seed-a", 1000), a) {
-		t.Error("a larger budget must extend a smaller one with the same seed")
+	if !strings.HasPrefix(padding("seed-a", 100), a) {
+		t.Error("more rows must extend fewer rows with the same seed")
 	}
 	if padding("seed-a", 0) != "" {
-		t.Error("a zero budget must give an empty padding")
+		t.Error("zero rows must give an empty padding")
 	}
 }
 
@@ -179,13 +173,13 @@ func TestLoadUnknown(t *testing.T) {
 const valid = `
 name: t
 version: 1
-limits: {max_output_tokens: 20, timeout: 30s, stream: true}
+limits: {max_output_tokens: 20, timeout: 30s, stream: true, input_tokens: 200}
 system: be terse
 tools:
   - name: get_time
     description: time
     parameters: {type: object, properties: {}}
-padding: {target_input_tokens: 500, seed: s}
+padding: {rows: 5, seed: s}
 turns:
   - role: user
     content: hi
@@ -205,7 +199,9 @@ func TestParseErrors(t *testing.T) {
 		{"no output tokens", strings.Replace(valid, "max_output_tokens: 20", "max_output_tokens: 0", 1), "limits.max_output_tokens: must be at least 1"},
 		{"no timeout", strings.Replace(valid, "timeout: 30s", "timeout: 0s", 1), "limits.timeout: must be greater than 0"},
 		{"no seed", strings.Replace(valid, "seed: s", `seed: ""`, 1), "padding.seed: is required"},
-		{"target too small", strings.Replace(valid, "target_input_tokens: 500", "target_input_tokens: 5", 1), "padding.target_input_tokens: 5 is below the"},
+		{"no rows", strings.Replace(valid, "rows: 5", "rows: 0", 1), "padding.rows: 0 is outside 1..999"},
+		{"too many rows", strings.Replace(valid, "rows: 5", "rows: 1000", 1), "padding.rows: 1000 is outside 1..999"},
+		{"no input tokens", strings.Replace(valid, "input_tokens: 200", "input_tokens: 0", 1), "limits.input_tokens: must be at least 1"},
 		{"duplicate tool", strings.Replace(valid, "padding:", "  - name: get_time\n    description: again\n    parameters: {type: object}\npadding:", 1), `tools[1].name: duplicate "get_time"`},
 		{"cache turn out of range", valid + "cache: {expect_hit_from_turn: 4}\n", "cache.expect_hit_from_turn: 4 is outside 0..1"},
 	}
