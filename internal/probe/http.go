@@ -20,6 +20,10 @@ const (
 	maxErrorMessage = 200
 )
 
+// errToolCall is recorded when a turn answers with a tool call and no text:
+// the scenario asks for text, and there is nothing to carry forward.
+const errToolCall = "tool call instead of text"
+
 // defaultClient has no timeout of its own: the probe context bounds it.
 var defaultClient = &http.Client{}
 

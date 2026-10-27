@@ -9,7 +9,9 @@
 // One Sample is one turn of one probe: a 3-turn scenario yields up to three
 // rows sharing a ProbeID. Durations are stored in microseconds and times in
 // UTC milliseconds. A TTFT of 0 means no content delta arrived and is stored
-// as NULL so failures never skew latency percentiles.
+// as NULL so failures never skew latency percentiles. Throughput is not
+// stored: Sample.TokensPerSecond derives it, and declines below 10 output
+// tokens or 50 ms of generation, where the figure would be noise.
 //
 // Insert writes a batch atomically, Samples reads with optional target and
 // time window filters, Prune deletes samples older than a cutoff, and

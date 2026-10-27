@@ -140,7 +140,7 @@ func (o *OpenAI) turn(ctx context.Context, s *scenario.Scenario, msgs []openaiMe
 // role-only chunk servers send first.
 func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote func() time.Time) string {
 	var text strings.Builder
-	var gotDelta, done bool
+	var gotDelta, done, toolCall bool
 	err := readSSE(body, func(_ string, data []byte) bool {
 		if string(data) == "[DONE]" {
 			done = true
@@ -158,6 +158,7 @@ func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote fun
 		}
 		for _, c := range ch.Choices {
 			hasToolCall := len(c.Delta.ToolCalls) > 0 && string(c.Delta.ToolCalls) != "null"
+			toolCall = toolCall || hasToolCall
 			if !gotDelta && (c.Delta.Content != "" || hasToolCall) {
 				gotDelta = true
 				turn.TTFT = time.Since(wrote())
@@ -179,6 +180,8 @@ func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote fun
 	case !done:
 		turn.StreamCut = true
 		turn.Error = "stream ended before [DONE]"
+	case text.Len() == 0 && toolCall:
+		turn.Error = errToolCall
 	case text.Len() == 0:
 		turn.Error = "empty reply"
 	}

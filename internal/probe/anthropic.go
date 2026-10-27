@@ -68,6 +68,9 @@ type anthropicEvent struct {
 	Message struct {
 		Usage anthropicUsage `json:"usage"`
 	} `json:"message"`
+	ContentBlock struct {
+		Type string `json:"type"`
+	} `json:"content_block"`
 	Delta struct {
 		Text string `json:"text"`
 	} `json:"delta"`
@@ -146,7 +149,7 @@ func (a *Anthropic) turn(ctx context.Context, s *scenario.Scenario, msgs []anthr
 // readAnthropicStream fills turn from the event stream and returns the text.
 func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote func() time.Time) string {
 	var text strings.Builder
-	var gotDelta, done bool
+	var gotDelta, done, toolUse bool
 	err := readSSE(body, func(_ string, data []byte) bool {
 		var ev anthropicEvent
 		if err := json.Unmarshal(data, &ev); err != nil {
@@ -158,6 +161,8 @@ func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote 
 			u := ev.Message.Usage
 			turn.InputTokens, turn.CacheReadTokens, turn.CacheWriteTokens = u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens
 			turn.OutputTokens = u.OutputTokens
+		case "content_block_start":
+			toolUse = toolUse || ev.ContentBlock.Type == "tool_use"
 		case "content_block_delta":
 			if !gotDelta {
 				gotDelta = true
@@ -184,6 +189,8 @@ func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote 
 	case !done:
 		turn.StreamCut = true
 		turn.Error = "stream ended before message_stop"
+	case text.Len() == 0 && toolUse:
+		turn.Error = errToolCall
 	case text.Len() == 0:
 		turn.Error = "empty reply"
 	}
