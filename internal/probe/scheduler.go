@@ -124,8 +124,22 @@ func (s *Scheduler) once(ctx context.Context, j Job, tick time.Time, slots chan 
 		o.Turns = []Turn{{Start: time.Now(), Error: "prober returned no turns"}}
 	}
 	o.CostUSD = cost(j.Price, o.Turns)
+	if missingUsage(o.Turns) {
+		o.CostUSD = max(o.CostUSD, reserved) // unknown usage is charged the high estimate
+	}
 	s.Budget.Settle(reserved, o.CostUSD)
 	s.Report(o)
+}
+
+// missingUsage reports whether a turn completed without reporting any token,
+// as servers that ignore stream_options.include_usage do.
+func missingUsage(turns []Turn) bool {
+	for _, t := range turns {
+		if t.Error == "" && t.InputTokens+t.OutputTokens+t.CacheReadTokens+t.CacheWriteTokens == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // sleep waits d or until ctx is done, and reports whether d fully elapsed.

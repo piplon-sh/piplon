@@ -17,6 +17,14 @@
 // answer that misses its expectation does not, so cache reads on later turns
 // are still measured. Errors never contain the key.
 //
+// OpenAI is the adapter for OpenAI-compatible Chat Completions endpoints
+// (OpenAI, OpenRouter, Groq, Together, LiteLLM, vLLM, Ollama's OpenAI API).
+// It follows the same turn and stopping rules. Caching there is automatic, so
+// it sends no cache markers; prompt_tokens_details.cached_tokens becomes
+// CacheReadTokens and is subtracted from InputTokens. It asks for a final usage
+// chunk with stream_options.include_usage, sends no Authorization header when
+// the key is empty, and treats a stream without data: [DONE] as cut.
+//
 // Scheduler runs one Job per target until its context is cancelled:
 //
 //   - a probe at start, then one per Job.Interval;
@@ -26,7 +34,8 @@
 //     still pending is skipped and reported as SkipOverlap;
 //   - before sending, the probe reserves its estimated cost in the Budget;
 //     if it does not fit, the probe is reported as SkipBudget instead of
-//     running. After the probe the reservation is replaced by the actual cost.
+//     running. After the probe the reservation is replaced by the actual cost,
+//     or kept when a completed turn reported no token usage at all.
 //
 // Every tick produces exactly one Outcome through Scheduler.Report, except a
 // tick abandoned at shutdown before it was sent. Report is
