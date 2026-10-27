@@ -7,6 +7,10 @@
 //	ANTHROPIC_API_KEY=... go run ./tools/record --format anthropic --model claude-sonnet-4-5
 //	OPENAI_API_KEY=... go run ./tools/record --format openai --model gpt-4o-mini
 //
+// With --debug, a failed turn's raw answer is printed to stderr instead, with
+// ids scrubbed and never if it contains the key, so a mismatch between the
+// real stream and the adapter can be inspected.
+//
 // Response headers are never saved, provider ids are replaced, and nothing is
 // written if any turn fails or if a body contains the key.
 package main
@@ -32,7 +36,7 @@ import (
 )
 
 func main() {
-	if err := run(os.Args[1:], os.Getenv, os.Stdout); err != nil {
+	if err := run(os.Args[1:], os.Getenv, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "record:", err)
 		os.Exit(1)
 	}
@@ -43,7 +47,7 @@ var defaults = map[string]struct{ url, keyEnv string }{
 	"openai":    {"https://api.openai.com/v1", "OPENAI_API_KEY"},
 }
 
-func run(args []string, getenv func(string) string, stdout io.Writer) error {
+func run(args []string, getenv func(string) string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("record", flag.ContinueOnError)
 	format := fs.String("format", "", "anthropic or openai")
 	model := fs.String("model", "", "model to probe")
@@ -51,6 +55,7 @@ func run(args []string, getenv func(string) string, stdout io.Writer) error {
 	keyEnv := fs.String("key-env", "", "environment variable holding the key (default per format)")
 	out := fs.String("out", "", "output directory (default internal/probe/testdata/<format>/recorded)")
 	timeout := fs.Duration("timeout", time.Minute, "timeout for the whole probe")
+	debug := fs.Bool("debug", false, "on failure, print the failed turn's raw answer (body only, ids scrubbed) to stderr")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -86,9 +91,16 @@ func run(args []string, getenv func(string) string, stdout io.Writer) error {
 	defer cancel()
 	res := p.Probe(ctx, s)
 	for i, t := range res.Turns {
-		if t.Error != "" {
-			return fmt.Errorf("turn %d failed, nothing written: %s", i+1, t.Error)
+		if t.Error == "" {
+			continue
 		}
+		if !*debug {
+			return fmt.Errorf("turn %d failed, nothing written: %s (rerun with --debug to see the raw answer)", i+1, t.Error)
+		}
+		if err := showBody(stderr, i, rec.bodies(), key); err != nil {
+			return err
+		}
+		return fmt.Errorf("turn %d failed, nothing written: %s", i+1, t.Error)
 	}
 	return write(*out, rec.bodies(), key, stdout)
 }
@@ -117,6 +129,22 @@ func write(dir string, bodies [][]byte, key string, stdout io.Writer) error {
 		_, _ = fmt.Fprintln(stdout, "wrote", path)
 	}
 	_, err := fmt.Fprintf(stdout, "scrubbed %d ids, 0 headers kept\n", total)
+	return err
+}
+
+// showBody prints the scrubbed raw body of turn i, unless it holds the key.
+// Bodies are all the recorder keeps: headers are never available to print.
+func showBody(w io.Writer, i int, bodies [][]byte, key string) error {
+	var err error
+	switch {
+	case i >= len(bodies):
+		_, err = fmt.Fprintf(w, "--- turn %d: no response body (the request never got an answer)\n", i+1)
+	case bytes.Contains(bodies[i], []byte(key)):
+		_, err = fmt.Fprintf(w, "--- turn %d raw answer not shown: it contains the key\n", i+1)
+	default:
+		body, _ := scrub(bodies[i])
+		_, err = fmt.Fprintf(w, "--- turn %d raw answer (body only, ids scrubbed) ---\n%s\n--- end of turn %d ---\n", i+1, body, i+1)
+	}
 	return err
 }
 
