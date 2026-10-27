@@ -1,0 +1,4 @@
+data: {"id":"chatcmpl-fixture-6","object":"chat.completion.chunk","created":1761000000,"model":"gpt-fixture","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-fixture-6","object":"chat.completion.chunk","created":1761000000,"model":"gpt-fixture","choices":[{"index":0,"delta":{"content":"REA"},"finish_reason":null}],"usage":null}
+

@@ -1,84 +1,18 @@
 package probe
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"flag"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/piplon-sh/piplon/internal/config"
 )
 
-var update = flag.Bool("update", false, "rewrite golden files in testdata/")
-
-const fixtureKey = "sk-ant-fixture-not-a-real-key"
-
-// reply is one canned HTTP response.
-type reply struct {
-	status  int
-	fixture string        // file under testdata/anthropic/
-	pause   time.Duration // wait after the first event before sending the rest
-}
-
-// fakeAPI serves replies in order and records every request it receives.
-type fakeAPI struct {
-	t       *testing.T
-	mu      sync.Mutex
-	replies []reply
-	bodies  [][]byte
-	headers []http.Header
-	paths   []string
-}
-
-func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	body, _ := io.ReadAll(r.Body)
-	f.mu.Lock()
-	n := len(f.bodies)
-	f.bodies = append(f.bodies, body)
-	f.headers = append(f.headers, r.Header.Clone())
-	f.paths = append(f.paths, r.Method+" "+r.URL.Path)
-	f.mu.Unlock()
-	if n >= len(f.replies) {
-		f.t.Errorf("unexpected request %d", n+1)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	rep := f.replies[n]
-	data, err := os.ReadFile(filepath.Join("testdata", "anthropic", rep.fixture))
-	if err != nil {
-		f.t.Error(err)
-		return
-	}
-	if rep.status != http.StatusOK {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(rep.status)
-		_, _ = w.Write(data)
-		return
-	}
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.WriteHeader(http.StatusOK)
-	first, rest, _ := bytes.Cut(data, []byte("\n\n"))
-	_, _ = w.Write(append(first, '\n', '\n'))
-	w.(http.Flusher).Flush()
-	time.Sleep(rep.pause)
-	_, _ = w.Write(rest)
-}
-
 func newFakeAPI(t *testing.T, replies ...reply) (*fakeAPI, *Anthropic) {
 	t.Helper()
-	f := &fakeAPI{t: t, replies: replies}
-	srv := httptest.NewServer(f)
-	t.Cleanup(srv.Close)
-	return f, &Anthropic{URL: srv.URL + "/", Model: "claude-sonnet-4-5", Key: config.Secret(fixtureKey)}
+	f, url := newFakeServer(t, "anthropic", replies...)
+	return f, &Anthropic{URL: url + "/", Model: "claude-sonnet-4-5", Key: config.Secret(fixtureKey)}
 }
 
 func okReplies() []reply {
@@ -112,24 +46,7 @@ func TestAnthropicRequestGolden(t *testing.T) {
 		turn int
 		file string
 	}{{1, "request_turn1.golden.json"}, {3, "request_turn3.golden.json"}} {
-		path := filepath.Join("testdata", "anthropic", g.file)
-		var pretty bytes.Buffer
-		if err := json.Indent(&pretty, f.bodies[g.turn-1], "", "  "); err != nil {
-			t.Fatal(err)
-		}
-		pretty.WriteByte('\n')
-		if *update {
-			if err := os.WriteFile(path, pretty.Bytes(), 0o600); err != nil {
-				t.Fatal(err)
-			}
-		}
-		want, err := os.ReadFile(path) //nolint:gosec // fixed test file names
-		if err != nil {
-			t.Fatalf("%v (run go test -update once to create it)", err)
-		}
-		if !bytes.Equal(pretty.Bytes(), want) {
-			t.Errorf("turn %d request differs from %s", g.turn, g.file)
-		}
+		checkGolden(t, "anthropic", g.file, f.bodies[g.turn-1])
 	}
 }
 
@@ -233,14 +150,8 @@ func TestAnthropicWrongAnswerKeepsGoing(t *testing.T) {
 }
 
 func TestAnthropicTimeout(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		// Reading the body lets the server notice when the client hangs up,
-		// which also proves the adapter closes the connection on timeout.
-		_, _ = io.Copy(io.Discard, r.Body)
-		<-r.Context().Done() // never answers
-	}))
-	t.Cleanup(srv.Close)
-	a := &Anthropic{URL: srv.URL, Model: "m", Key: config.Secret(fixtureKey)}
+	url := hangingServer(t)
+	a := &Anthropic{URL: url, Model: "m", Key: config.Secret(fixtureKey)}
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 	start := time.Now()

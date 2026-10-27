@@ -1,28 +1,18 @@
 package probe
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptrace"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/piplon-sh/piplon/internal/config"
 	"github.com/piplon-sh/piplon/internal/scenario"
-	"github.com/piplon-sh/piplon/internal/version"
 )
 
-const (
-	anthropicVersion = "2023-06-01"
-	maxErrorBody     = 64 << 10
-	maxErrorMessage  = 200
-)
+const anthropicVersion = "2023-06-01"
 
 // Anthropic probes the Anthropic Messages API with a streamed request.
 type Anthropic struct {
@@ -31,8 +21,6 @@ type Anthropic struct {
 	Key    config.Secret
 	Client *http.Client // nil uses a client bounded only by the probe context
 }
-
-var defaultClient = &http.Client{}
 
 type anthropicRequest struct {
 	Model       string             `json:"model"`
@@ -74,11 +62,6 @@ type anthropicUsage struct {
 	OutputTokens             int `json:"output_tokens"`
 }
 
-type anthropicError struct {
-	Type    string `json:"type"`
-	Message string `json:"message"`
-}
-
 // anthropicEvent covers every streamed event type piplon reads.
 type anthropicEvent struct {
 	Type    string `json:"type"`
@@ -89,7 +72,7 @@ type anthropicEvent struct {
 		Text string `json:"text"`
 	} `json:"delta"`
 	Usage anthropicUsage `json:"usage"`
-	Error anthropicError `json:"error"`
+	Error apiError       `json:"error"`
 }
 
 // Probe runs every turn of s as one conversation. It stops at the first turn
@@ -139,29 +122,10 @@ func (a *Anthropic) turn(ctx context.Context, s *scenario.Scenario, msgs []anthr
 		turn.Error = "encode request: " + err.Error()
 		return turn, ""
 	}
-	// wrote is set by the transport goroutine once the request is fully
-	// written; TTFT is measured from there.
-	var wrote atomic.Pointer[time.Time]
-	trace := &httptrace.ClientTrace{WroteRequest: func(httptrace.WroteRequestInfo) {
-		now := time.Now()
-		wrote.Store(&now)
-	}}
-	req, err := http.NewRequestWithContext(httptrace.WithClientTrace(ctx, trace),
-		http.MethodPost, strings.TrimRight(a.URL, "/")+"/v1/messages", bytes.NewReader(body))
-	if err != nil {
-		turn.Error = "build request: " + err.Error()
-		return turn, ""
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Api-Key", a.Key.Reveal())
-	req.Header.Set("Anthropic-Version", anthropicVersion)
-	req.Header.Set("User-Agent", "piplon/"+version.Version)
-
-	client := a.Client
-	if client == nil {
-		client = defaultClient
-	}
-	resp, err := client.Do(req)
+	header := http.Header{}
+	header.Set("X-Api-Key", a.Key.Reveal())
+	header.Set("Anthropic-Version", anthropicVersion)
+	resp, wrote, err := post(ctx, a.Client, strings.TrimRight(a.URL, "/")+"/v1/messages", header, body, turn.Start)
 	if err != nil {
 		turn.Total = time.Since(turn.Start)
 		turn.Error = transportError(ctx, err)
@@ -174,12 +138,7 @@ func (a *Anthropic) turn(ctx context.Context, s *scenario.Scenario, msgs []anthr
 		turn.Total = time.Since(turn.Start)
 		return turn, ""
 	}
-	reply := readAnthropicStream(ctx, resp.Body, &turn, func() time.Time {
-		if w := wrote.Load(); w != nil {
-			return *w
-		}
-		return turn.Start
-	})
+	reply := readAnthropicStream(ctx, resp.Body, &turn, wrote)
 	turn.Total = time.Since(turn.Start)
 	return turn, reply
 }
@@ -211,8 +170,8 @@ func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote 
 			done = true
 			return false
 		case "error":
-			turn.ProviderError = ev.Error.Type
-			turn.Error = providerMessage(ev.Error.Type, ev.Error.Message)
+			turn.ProviderError = ev.Error.kind()
+			turn.Error = providerMessage(ev.Error.kind(), ev.Error.Message)
 			return false
 		}
 		return true
@@ -229,38 +188,4 @@ func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote 
 		turn.Error = "empty reply"
 	}
 	return text.String()
-}
-
-// readHTTPError records a non-200 answer. Bodies follow the provider error
-// shape {"error": {"type": ..., "message": ...}} when the provider sent one.
-func readHTTPError(resp *http.Response, turn *Turn) {
-	var body struct {
-		Error anthropicError `json:"error"`
-	}
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))
-	if json.Unmarshal(raw, &body) != nil || body.Error.Type == "" {
-		turn.Error = fmt.Sprintf("http %d", resp.StatusCode)
-		return
-	}
-	turn.ProviderError = body.Error.Type
-	turn.Error = fmt.Sprintf("http %d: %s", resp.StatusCode, providerMessage(body.Error.Type, body.Error.Message))
-}
-
-func providerMessage(kind, msg string) string {
-	if r := []rune(msg); len(r) > maxErrorMessage {
-		msg = string(r[:maxErrorMessage]) + "…"
-	}
-	return kind + ": " + msg
-}
-
-// transportError names a failure that produced no usable HTTP answer.
-func transportError(ctx context.Context, err error) string {
-	switch {
-	case errors.Is(ctx.Err(), context.DeadlineExceeded):
-		return "timeout"
-	case errors.Is(ctx.Err(), context.Canceled):
-		return "canceled"
-	default:
-		return err.Error()
-	}
 }
