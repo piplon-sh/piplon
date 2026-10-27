@@ -28,9 +28,9 @@ You run production on LLM APIs, often through a gateway. When "the AI is slow", 
 
 ## What piplon does
 
-Every minute, from wherever it runs, piplon sends the **same real request** (a 3-turn conversation with tools, streamed) to every provider, model, region and path you configure, and records what came back:
+On a fixed interval (every 5 minutes by default), from wherever it runs, piplon sends the **same real request** (a 3-turn conversation with tools, streamed) to every provider, model, region and path you configure, and records what came back:
 
-- **time to first token**, throughput, total latency
+- **time to first token**, total latency, and throughput when replies are long enough to time
 - **errors**: 429, 529, throttling, 5xx, timeouts
 - **cut streams** and truncated answers
 - **prompt-cache hits vs misses** on turns 2 and 3

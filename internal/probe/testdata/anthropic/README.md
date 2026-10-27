@@ -12,6 +12,7 @@ the roadmap (replay tests from recorded fixtures).
 | `turn3.sse` | turn 3 answers DONE, reads the prompt cache |
 | `wrong_answer.sse` | a complete stream whose text fails the turn's expectation |
 | `stream_error.sse` | an `error` event (overloaded) in the middle of a stream |
+| `tool_use.sse` | the model calls a tool instead of answering in text |
 | `stream_cut.sse` | a stream that ends without `message_stop` |
 | `overloaded_529.json` | the error body returned with HTTP 529 |
 | `request_turn1.golden.json` | the exact request body of turn 1 |

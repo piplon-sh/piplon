@@ -15,7 +15,9 @@
 // cache tokens, HTTP and provider errors, and a cut stream (closed before
 // message_stop). A transport, HTTP or stream failure ends the conversation; an
 // answer that misses its expectation does not, so cache reads on later turns
-// are still measured. Errors never contain the key.
+// are still measured. A reply that is a tool call with no text is recorded as
+// "tool call instead of text" and ends the conversation. Errors never contain
+// the key.
 //
 // OpenAI is the adapter for OpenAI-compatible Chat Completions endpoints
 // (OpenAI, OpenRouter, Groq, Together, LiteLLM, vLLM, Ollama's OpenAI API).

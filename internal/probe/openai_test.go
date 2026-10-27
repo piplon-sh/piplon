@@ -111,6 +111,11 @@ func TestOpenAIFailures(t *testing.T) {
 			turns:   1, status: 200, providerError: "server_error", errContains: "had an error",
 		},
 		{
+			name:    "model calls a tool instead of answering",
+			replies: []reply{{status: 200, fixture: "tool_call.sse"}},
+			turns:   1, status: 200, errContains: "tool call instead of text",
+		},
+		{
 			name:    "stream ends without [DONE]",
 			replies: []reply{{status: 200, fixture: "stream_cut.sse"}},
 			turns:   1, status: 200, errContains: "stream ended before [DONE]", cut: true,

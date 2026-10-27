@@ -12,6 +12,7 @@ recordings is tracked in the roadmap (replay tests from recorded fixtures).
 | `turn3.sse` | turn 3 answers DONE, 1 920 cached prompt tokens |
 | `wrong_answer.sse` | a complete stream whose text fails the turn's expectation |
 | `stream_error.sse` | an `error` object sent as a stream chunk |
+| `tool_call.sse` | the model calls a tool instead of answering in text |
 | `stream_cut.sse` | a stream that ends without `data: [DONE]` |
 | `rate_limited_429.json` | the error body returned with HTTP 429 |
 | `request_turn1.golden.json` | the exact request body of turn 1 |

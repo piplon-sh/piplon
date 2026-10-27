@@ -110,6 +110,11 @@ func TestAnthropicFailures(t *testing.T) {
 			turns:   1, status: 200, errContains: "stream ended before message_stop", cut: true,
 		},
 		{
+			name:    "model calls a tool instead of answering",
+			replies: []reply{{status: 200, fixture: "tool_use.sse"}},
+			turns:   1, status: 200, errContains: "tool call instead of text",
+		},
+		{
 			name:    "second turn fails after a good first",
 			replies: []reply{{status: 200, fixture: "turn1.sse"}, {status: 529, fixture: "overloaded_529.json"}},
 			turns:   2, status: 529, providerError: "overloaded_error", errContains: "Overloaded",
