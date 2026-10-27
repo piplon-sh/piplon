@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -80,10 +81,10 @@ func TestPaddingSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	words := len(strings.Fields(s.PaddingText()))
-	estimate := estimateTokens(s.baseText()) + words
-	if estimate != s.Padding.TargetInputTokens {
-		t.Errorf("estimated turn-1 tokens: got %d, want %d", estimate, s.Padding.TargetInputTokens)
+	estimate := estimateTokens(s.baseText()) + estimateTokens(s.PaddingText())
+	target := s.Padding.TargetInputTokens
+	if estimate > target || estimate <= target-maxRowTokens {
+		t.Errorf("estimated turn-1 tokens: got %d, want within one row (%d) below %d", estimate, maxRowTokens, target)
 	}
 	if !strings.HasPrefix(s.SystemPrompt(), strings.TrimRight(s.System, "\n")+"\n\n") {
 		t.Error("system prompt must start with the scenario system text and a blank line")
@@ -93,42 +94,67 @@ func TestPaddingSize(t *testing.T) {
 	}
 }
 
-func TestPadding(t *testing.T) {
-	a := padding("seed-a", 100)
-	if got := len(strings.Fields(a)); got != 100 {
-		t.Fatalf("got %d words, want 100", got)
+var row = regexp.MustCompile(`^[a-z]+(-[a-z]+)*-\d{3} \| [a-z]+-[a-z]+-\d \| (healthy|degraded|maintenance) \| p50 \d+ ms \| p99 \d+ ms \| \d+ replicas$`)
+
+func TestPaddingIsAnInventory(t *testing.T) {
+	a := padding("seed-a", 500)
+	lines := strings.Split(a, "\n")
+	if lines[0] != inventoryHeader {
+		t.Fatalf("first line %q, want the inventory header", lines[0])
 	}
-	if a != padding("seed-a", 100) {
-		t.Error("same seed must give the same padding")
+	if len(lines) < 10 {
+		t.Fatalf("got %d lines for 500 tokens, want many rows", len(lines))
 	}
-	if a == padding("seed-b", 100) {
-		t.Error("different seeds must give different padding")
-	}
-	if !strings.HasPrefix(padding("seed-a", 200), a) {
-		t.Error("a longer padding must extend a shorter one with the same seed")
-	}
-	for i, line := range strings.Split(a, "\n") {
-		if n := len(strings.Fields(line)); n > wordsPerLine {
-			t.Errorf("line %d has %d words, want at most %d", i, n, wordsPerLine)
+	seen := map[string]bool{}
+	for i, l := range lines[1:] {
+		if !row.MatchString(l) {
+			t.Errorf("line %d is not an inventory row: %q", i+2, l)
 		}
+		name := strings.SplitN(l, " ", 2)[0]
+		if seen[name] {
+			t.Errorf("duplicate service name %q", name)
+		}
+		seen[name] = true
 	}
-	if padding("seed-a", 0) != "" {
-		t.Error("zero words must give an empty padding")
+	if got := estimateTokens(a); got > 500 {
+		t.Errorf("padding estimated at %d tokens, over its 500 budget", got)
 	}
 }
 
-func TestWordList(t *testing.T) {
-	if len(words) != 256 {
-		t.Fatalf("got %d words, want exactly 256 (one per byte value)", len(words))
+func TestPaddingIsDeterministic(t *testing.T) {
+	a := padding("seed-a", 500)
+	if a != padding("seed-a", 500) {
+		t.Error("same seed must give the same padding")
 	}
-	seen := make(map[string]bool, len(words))
-	for _, w := range words {
-		if seen[w] {
-			t.Errorf("duplicate word %q", w)
+	if a == padding("seed-b", 500) {
+		t.Error("different seeds must give different padding")
+	}
+	if !strings.HasPrefix(padding("seed-a", 1000), a) {
+		t.Error("a larger budget must extend a smaller one with the same seed")
+	}
+	if padding("seed-a", 0) != "" {
+		t.Error("a zero budget must give an empty padding")
+	}
+}
+
+func TestInventoryLists(t *testing.T) {
+	for _, l := range []struct {
+		name  string
+		items []string
+		size  int
+	}{{"services", services[:], 32}, {"regions", regions[:], 16}, {"statuses", statuses[:], 8}} {
+		if len(l.items) != l.size {
+			t.Errorf("%s: %d entries, want %d (a power of two, so one byte picks without bias)", l.name, len(l.items), l.size)
 		}
-		seen[w] = true
-		if w == "" || strings.ToLower(w) != w || strings.ContainsAny(w, " \n\t") {
-			t.Errorf("word %q must be a single lower-case token", w)
+		if l.name == "statuses" {
+			continue // repeats weight the healthy status on purpose
+		}
+		seen := map[string]bool{}
+		for _, it := range l.items {
+			if seen[it] {
+				t.Errorf("%s: duplicate %q", l.name, it)
+			}
+			seen[it] = true
 		}
 	}
 }
