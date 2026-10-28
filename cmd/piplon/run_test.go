@@ -93,7 +93,7 @@ func startRun(t *testing.T, path string, logs *syncBuffer) (stop func() error) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- run(ctx, path, slog.New(slog.NewJSONHandler(logs, nil))) }()
+	go func() { done <- run(ctx, path, slog.New(slog.NewJSONHandler(logs, nil)), nil) }()
 	return func() error {
 		cancel()
 		select {
@@ -149,6 +149,32 @@ func TestRunProbesStoresAndStops(t *testing.T) {
 	}
 }
 
+func TestRunShowsTheLiveTable(t *testing.T) {
+	url, _ := fakeAnthropic(t)
+	path, _ := writeConfig(t, "anthropic", url, 5)
+	var screen syncBuffer
+	view := &liveTable{w: &screen, width: func() int { return 100 }}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- run(ctx, path, view.logger(), view) }()
+	waitFor(t, "the table to show the first probe", func() bool {
+		return strings.Contains(screen.String(), "hit") // turns 2 and 3 read the cache
+	})
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	got := screen.String()
+	for _, want := range []string{"standard-v1 · 1 targets · every 10s", "TARGET", "fake", "ok"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("screen is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "probe done") {
+		t.Error("logs leaked onto the table")
+	}
+}
+
 func TestRunSeedsTheBudgetFromToday(t *testing.T) {
 	url, requests := fakeAnthropic(t)
 	path, dbPath := writeConfig(t, "anthropic", url, 0.01)
@@ -176,7 +202,7 @@ func TestRunSeedsTheBudgetFromToday(t *testing.T) {
 
 func TestRunRejectsUnsupportedFormatsBeforeOpeningTheStore(t *testing.T) {
 	path, dbPath := writeConfig(t, "bedrock", "", 5)
-	err := run(t.Context(), path, slog.New(slog.DiscardHandler))
+	err := run(t.Context(), path, slog.New(slog.DiscardHandler), nil)
 	if !errors.Is(err, probe.ErrUnsupported) || !strings.Contains(err.Error(), "target fake") {
 		t.Fatalf("got %v, want ErrUnsupported naming the target", err)
 	}

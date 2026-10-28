@@ -30,6 +30,16 @@ func TestForTarget(t *testing.T) {
 	}
 }
 
+func TestTurnRefused(t *testing.T) {
+	for err, want := range map[string]bool{
+		"refused": true, "refused: bio": true, "": false, "empty reply": false, "refusedx": false,
+	} {
+		if got := (Turn{Error: err}).Refused(); got != want {
+			t.Errorf("%q: got %v, want %v", err, got, want)
+		}
+	}
+}
+
 func TestSamplesCostMatchesCost(t *testing.T) {
 	p := config.Price{Input: 3, Output: 15, CacheRead: 0.3, CacheWrite: 3.75}
 	turns := []Turn{
