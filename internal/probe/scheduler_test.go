@@ -3,6 +3,7 @@ package probe
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -274,6 +275,57 @@ func TestProbeWithoutUsageIsChargedItsEstimate(t *testing.T) {
 			if o.Skipped == "" && !near(o.CostUSD, estimate(price, sc)) {
 				t.Errorf("cost: got %v, want the estimate %v", o.CostUSD, estimate(price, sc))
 			}
+		}
+	})
+}
+
+// starts returns when each outcome's tick fired, relative to start.
+func starts(r *recorder, start time.Time) []time.Duration {
+	var out []time.Duration
+	for _, o := range r.outcomes() {
+		out = append(out, o.Start.Sub(start))
+	}
+	return out
+}
+
+func TestConfirmProbesSoonerThenKeepsTheSchedule(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := &recorder{}
+		s := newScheduler(t, r, Job{Target: "a", Interval: 5 * time.Minute, Price: config.DefaultPrice, Prober: &fakeProber{took: time.Second}})
+		var asked int
+		s.Confirm = func(Outcome) bool { asked++; return asked < 3 } // the third probe confirms
+		start := time.Now()
+		runFor(t, s, 5*time.Minute+time.Second)
+		want := []time.Duration{0, 31 * time.Second, 62 * time.Second, 5 * time.Minute}
+		if got := starts(r, start); !slices.Equal(got, want) {
+			t.Errorf("ticks at %v, want %v: 30 s after each probe to confirm, then the regular schedule", got, want)
+		}
+	})
+}
+
+func TestConfirmKeepsAShorterInterval(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := &recorder{}
+		s := newScheduler(t, r, Job{Target: "a", Interval: 20 * time.Second, Price: config.DefaultPrice, Prober: &fakeProber{took: time.Second}})
+		s.Confirm = func(Outcome) bool { return true }
+		start := time.Now()
+		runFor(t, s, 41*time.Second)
+		if got, want := starts(r, start), []time.Duration{0, 20 * time.Second, 40 * time.Second}; !slices.Equal(got, want) {
+			t.Errorf("ticks at %v, want %v", got, want)
+		}
+	})
+}
+
+func TestBudgetSkipsAreNotConfirmed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := &recorder{}
+		s := newScheduler(t, r, Job{Target: "a", Interval: 5 * time.Minute, Price: config.DefaultPrice, Prober: &fakeProber{took: time.Second}})
+		s.Budget = NewBudget(0)
+		var asked atomic.Int32
+		s.Confirm = func(Outcome) bool { asked.Add(1); return true }
+		runFor(t, s, time.Minute)
+		if n := asked.Load(); n != 0 || r.count(SkipBudget) != 1 {
+			t.Errorf("Confirm asked %d times for %d budget skips, want 0 for 1", n, r.count(SkipBudget))
 		}
 	})
 }

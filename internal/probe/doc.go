@@ -38,6 +38,9 @@
 // Scheduler runs one Job per target until its context is cancelled:
 //
 //   - a probe at start, then one per Job.Interval;
+//   - when Confirm is set and says a probe sent needs confirming, one more
+//     probe fires 30 s after it, if that comes before the next regular tick;
+//     the regular ticks keep their schedule, and the budget still applies;
 //   - each probe waits a random delay in [0, Jitter), then a slot among
 //     Concurrency, then runs under Timeout;
 //   - a tick that arrives while the previous probe of the same target is

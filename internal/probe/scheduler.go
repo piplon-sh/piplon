@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/piplon-sh/piplon/internal/config"
@@ -30,7 +29,14 @@ type Scheduler struct {
 	Concurrency int
 	Budget      *Budget
 	Report      func(Outcome) // called from many goroutines
+	// Confirm, when set, is asked after each probe sent whether to probe the
+	// target again after confirmAfter instead of waiting for the next tick.
+	Confirm func(Outcome) bool
 }
+
+// confirmAfter is how soon a probe confirming a failure follows it. A target
+// whose interval is shorter keeps its interval.
+const confirmAfter = 30 * time.Second
 
 func (s *Scheduler) check() error {
 	switch {
@@ -68,39 +74,57 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	return nil
 }
 
-// loop fires j at start and on every tick, skipping ticks that overlap.
+// loop fires j at start and every Interval after, skipping ticks that
+// overlap. When Confirm asks for it, an extra tick fires confirmAfter after
+// the probe, if that comes before the next regular one; the regular ticks
+// keep their schedule.
 func (s *Scheduler) loop(ctx context.Context, j Job, slots chan struct{}, wg *sync.WaitGroup) {
-	ticker := time.NewTicker(j.Interval)
-	defer ticker.Stop()
-	var pending atomic.Bool
+	regular := time.Now()
+	next := regular
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+	done := make(chan Outcome, 1) // one probe in flight at most, so never blocks
+	pending := false
 	for {
-		tick := time.Now()
-		if pending.CompareAndSwap(false, true) {
-			wg.Go(func() {
-				defer pending.Store(false)
-				s.once(ctx, j, tick, slots)
-			})
-		} else {
-			s.Report(Outcome{Target: j.Target, Scenario: s.Scenario.ID(), Start: tick, Skipped: SkipOverlap})
-		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case o := <-done:
+			pending = false
+			if s.Confirm != nil && len(o.Turns) > 0 && s.Confirm(o) {
+				if soon := time.Now().Add(confirmAfter); soon.Before(next) {
+					next = soon
+					timer.Reset(time.Until(next))
+				}
+			}
+		case <-timer.C:
+			tick := time.Now()
+			if pending {
+				s.Report(Outcome{Target: j.Target, Scenario: s.Scenario.ID(), Start: tick, Skipped: SkipOverlap})
+			} else {
+				pending = true
+				wg.Go(func() { done <- s.once(ctx, j, tick, slots) })
+			}
+			if !tick.Before(regular) {
+				regular = regular.Add(j.Interval)
+			}
+			next = regular
+			timer.Reset(time.Until(next))
 		}
 	}
 }
 
-// once runs a single probe: jitter, slot, budget, probe, report.
-func (s *Scheduler) once(ctx context.Context, j Job, tick time.Time, slots chan struct{}) {
+// once runs a single probe: jitter, slot, budget, probe, report. It returns
+// what it reported; only a probe sent has turns.
+func (s *Scheduler) once(ctx context.Context, j Job, tick time.Time, slots chan struct{}) Outcome {
 	if s.Jitter > 0 && !sleep(ctx, rand.N(s.Jitter)) { //nolint:gosec // spreading load needs no crypto randomness
-		return
+		return Outcome{}
 	}
 	select {
 	case slots <- struct{}{}:
 		defer func() { <-slots }()
 	case <-ctx.Done():
-		return
+		return Outcome{}
 	}
 
 	o := Outcome{
@@ -113,7 +137,7 @@ func (s *Scheduler) once(ctx context.Context, j Job, tick time.Time, slots chan 
 	if !s.Budget.Reserve(reserved) {
 		o.ProbeID, o.Skipped = "", SkipBudget
 		s.Report(o)
-		return
+		return o
 	}
 
 	pctx, cancel := context.WithTimeout(ctx, s.Timeout)
@@ -129,6 +153,7 @@ func (s *Scheduler) once(ctx context.Context, j Job, tick time.Time, slots chan 
 	}
 	s.Budget.Settle(reserved, o.CostUSD)
 	s.Report(o)
+	return o
 }
 
 // missingUsage reports whether a turn completed without reporting any token,

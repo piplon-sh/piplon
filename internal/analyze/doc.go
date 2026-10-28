@@ -31,10 +31,14 @@
 // after Confirm (3) probes in a row agree on the new one, to open as well as
 // to close, and until then the candidate is Pending with its Count. The first
 // State is not reported as a change. Hard reports the failure states.
+// Failing counts hard failures in a row, of any state; Confirming is true
+// while it is between 1 and Confirm, when the scheduler probes again after
+// 30 s rather than waiting for the interval.
 //
 // Analyzer keeps a Status per target. Observe learns the target's baseline
 // from the store on its first probe and every hour after, from the samples
 // before that probe, then classifies and applies hysteresis. Skipped ticks
 // (budget, overlap) leave the status unchanged. A store error keeps the
-// previous baseline and is returned for the caller to log.
+// previous baseline and is returned for the caller to log. Confirming tells
+// the scheduler whether a target's latest probe needs confirming.
 package analyze

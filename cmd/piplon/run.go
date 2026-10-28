@@ -93,6 +93,7 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 				view.update(ctx, o, st)
 			}
 		},
+		Confirm: func(o probe.Outcome) bool { return an.Confirming(o.Target) },
 	}
 	if view != nil {
 		names := make([]string, len(jobs))
