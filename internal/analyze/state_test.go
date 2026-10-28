@@ -97,6 +97,27 @@ func TestStatusNeedsThreeInARow(t *testing.T) {
 	}
 }
 
+func TestConfirmingUntilThreeHardFailures(t *testing.T) {
+	var s Status
+	for i, tt := range []struct {
+		seen       State
+		confirming bool
+	}{
+		{Down, true}, // the first probe: down at once, still worth confirming
+		{Errors, true},
+		{Down, false}, // three hard failures in a row, of any kind
+		{Down, false},
+		{Slow, false},
+		{Refused, true},
+		{OK, false},
+	} {
+		s.observe(Verdict{State: tt.seen})
+		if s.Confirming() != tt.confirming {
+			t.Fatalf("probe %d (%s): confirming=%v, want %v (%+v)", i+1, tt.seen, !tt.confirming, tt.confirming, s)
+		}
+	}
+}
+
 func TestHardStates(t *testing.T) {
 	for s, hard := range map[State]bool{OK: false, CacheMiss: false, Slow: false, Refused: true, Errors: true, Down: true, Gone: true} {
 		if s.Hard() != hard {
@@ -136,6 +157,13 @@ func TestAnalyzerLearnsFromTheStore(t *testing.T) {
 	st, _ := a.Observe(t.Context(), probe.Outcome{Target: "t", Skipped: probe.SkipBudget})
 	if st.State != Slow || st.Changed {
 		t.Errorf("a skipped tick changed the status: %+v", st)
+	}
+	if a.Confirming("t") || a.Confirming("unknown") {
+		t.Error("slow and unknown targets need no confirming probe")
+	}
+	_, _ = a.Observe(t.Context(), outcome(probe.Turn{Error: "timeout"}))
+	if !a.Confirming("t") {
+		t.Error("a timeout needs a confirming probe")
 	}
 	if st, _ := a.Observe(t.Context(), probe.Outcome{Target: "new", Start: monday, Turns: slow.Turns}); st.Last.State != OK {
 		t.Errorf("a target without history judged slow: %+v", st)

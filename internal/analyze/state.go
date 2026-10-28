@@ -127,12 +127,22 @@ type Status struct {
 	Count   int     // probes in a row in Pending
 	Last    Verdict // the latest probe sent
 	Changed bool    // the latest probe confirmed a new State; never on the first
+	Failing int     // hard failures in a row, of any state, up to the latest probe
 }
+
+// Confirming reports whether the latest probe failed hard and fewer than
+// Confirm probes in a row have, so the failure is worth checking again soon.
+func (s Status) Confirming() bool { return s.Failing > 0 && s.Failing < Confirm }
 
 // observe applies one verdict. The first one sets State directly, so a bad
 // key shows as down after one probe; hysteresis applies to every change after.
 func (s *Status) observe(v Verdict) {
 	s.Last, s.Changed = v, false
+	if v.State.Hard() {
+		s.Failing++
+	} else {
+		s.Failing = 0
+	}
 	switch {
 	case s.State == "":
 		s.State = v.State

@@ -64,6 +64,20 @@ func (a *Analyzer) Observe(ctx context.Context, o probe.Outcome) (Status, error)
 	return t.status, err
 }
 
+// Confirming reports whether target's latest probe failed hard and still
+// needs confirming; see Status.Confirming.
+func (a *Analyzer) Confirming(target string) bool {
+	a.mu.Lock()
+	t := a.targets[target]
+	a.mu.Unlock()
+	if t == nil {
+		return false
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.status.Confirming()
+}
+
 // learn reads the target's samples before this probe, so it is not part of
 // its own baseline.
 func (t *target) learn(ctx context.Context, a *Analyzer, o probe.Outcome) error {

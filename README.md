@@ -49,7 +49,7 @@ anthropic-direct       ok      1240 ms   0.0 %   hit    3 s ago
 anthropic-via-gateway  errors  1610 ms   25.0 %  -      41 s ago  turn 2: http 529: overloaded_error: Overloaded
 ```
 
-The first probe sets STATE, so a bad key shows as `down` at once; after that STATE changes only when three probes in a row agree, to open as well as to close, and until then NOTE shows the state on its way, such as `errors 1/3`. `slow` and `cache_miss` are judged against what the target usually does at that hour and weekday, so they appear after 24 h of history. On a terminal the table redraws every second; on a narrow one NOTE, then LAST, are hidden. Anywhere else (systemd, Docker, a pipe) `piplon run` writes one JSON log line per probe instead. A Sonnet 4.5 probe costs about 0.0085 USD when it writes the prompt cache and 0.0021 USD when it reads it.
+The first probe sets STATE, so a bad key shows as `down` at once; after that STATE changes only when three probes in a row agree, to open as well as to close, and until then NOTE shows the state on its way, such as `errors 1/3`. After a hard failure (`gone`, `down`, `errors`, `refused`) the next probes follow 30 s apart instead of waiting for the interval, until three in a row confirm it or one comes back ok, so at a 5-minute interval an outage is confirmed in about a minute. `slow` and `cache_miss` are judged against what the target usually does at that hour and weekday, so they appear after 24 h of history. On a terminal the table redraws every second; on a narrow one NOTE, then LAST, are hidden. Anywhere else (systemd, Docker, a pipe) `piplon run` writes one JSON log line per probe instead. A Sonnet 4.5 probe costs about 0.0085 USD when it writes the prompt cache and 0.0021 USD when it reads it.
 
 ## Install
 
