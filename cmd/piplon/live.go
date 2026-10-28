@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/piplon-sh/piplon/internal/analyze"
 	"github.com/piplon-sh/piplon/internal/probe"
 	"github.com/piplon-sh/piplon/internal/store"
 )
@@ -23,13 +24,12 @@ type liveTable struct {
 	w     io.Writer
 	width func() int
 
-	mu        sync.Mutex
-	header    func() string
-	db        store.Store
-	cacheFrom int
-	rows      map[string]*row
-	lastErr   string
-	drawn     int // lines of the previous frame, to move back over them
+	mu      sync.Mutex
+	header  func() string
+	db      store.Store
+	rows    map[string]*row
+	lastErr string
+	drawn   int // lines of the previous frame, to move back over them
 }
 
 // logger returns a logger whose errors appear under the table.
@@ -55,18 +55,19 @@ func (e errLine) Write(p []byte) (int, error) {
 }
 
 // start shows one pending row per target. header is called on every frame.
-func (l *liveTable) start(header func() string, targets []string, db store.Store, cacheFrom int) {
+func (l *liveTable) start(header func() string, targets []string, db store.Store) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.header, l.db, l.cacheFrom = header, db, cacheFrom
+	l.header, l.db = header, db
 	l.rows = make(map[string]*row, len(targets))
 	for _, t := range targets {
 		l.rows[t] = &row{Target: t, State: statePending, Cache: "-"}
 	}
 }
 
-// update applies one outcome and the target's last hour of samples.
-func (l *liveTable) update(ctx context.Context, o probe.Outcome) {
+// update applies one outcome, the target's status after it and its last hour
+// of samples.
+func (l *liveTable) update(ctx context.Context, o probe.Outcome, st analyze.Status) {
 	samples, err := l.db.Samples(ctx, store.Query{Target: o.Target, Since: time.Now().Add(-time.Hour)})
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -74,7 +75,7 @@ func (l *liveTable) update(ctx context.Context, o probe.Outcome) {
 	if r == nil {
 		return
 	}
-	r.applyTick(o, l.cacheFrom)
+	r.apply(o, st)
 	if err == nil {
 		r.applyStats(samples)
 	}

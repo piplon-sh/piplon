@@ -46,10 +46,10 @@ piplon 0.1.0 · standard-v1 · 2 targets · every 1m · 0.0527 of 5.00 USD today
 
 TARGET                 STATE   TTFT p50  ERR 1h  CACHE  LAST      NOTE
 anthropic-direct       ok      1240 ms   0.0 %   hit    3 s ago
-anthropic-via-gateway  errors  1610 ms   10.0 %  -      41 s ago  turn 1: overloaded_error: Overloaded
+anthropic-via-gateway  errors  1610 ms   25.0 %  -      41 s ago  turn 2: http 529: overloaded_error: Overloaded
 ```
 
-On a terminal the table redraws every second; on a narrow one NOTE, then LAST, are hidden. Anywhere else (systemd, Docker, a pipe) `piplon run` writes one JSON log line per probe instead. A Sonnet 4.5 probe costs about 0.0085 USD when it writes the prompt cache and 0.0021 USD when it reads it.
+The first probe sets STATE, so a bad key shows as `down` at once; after that STATE changes only when three probes in a row agree, to open as well as to close, and until then NOTE shows the state on its way, such as `errors 1/3`. `slow` and `cache_miss` are judged against what the target usually does at that hour and weekday, so they appear after 24 h of history. On a terminal the table redraws every second; on a narrow one NOTE, then LAST, are hidden. Anywhere else (systemd, Docker, a pipe) `piplon run` writes one JSON log line per probe instead. A Sonnet 4.5 probe costs about 0.0085 USD when it writes the prompt cache and 0.0021 USD when it reads it.
 
 ## Install
 
