@@ -55,6 +55,30 @@ func TestParseMinimalAppliesDefaults(t *testing.T) {
 	}
 }
 
+func TestOllamaDefaultsToLocalAndFree(t *testing.T) {
+	cfg, err := Parse([]byte(`
+targets:
+  - name: local
+    format: ollama
+    model: llama3.2
+  - name: remote
+    format: ollama
+    url: http://gpu-box:11434/v1
+    model: llama3.2
+    price: {input: 0.1}
+`), env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	local, remote := cfg.Targets[0], cfg.Targets[1]
+	if local.URL != OllamaURL || *local.Price != (Price{}) {
+		t.Errorf("local: url %q price %+v, want %s and zero", local.URL, *local.Price, OllamaURL)
+	}
+	if remote.URL != "http://gpu-box:11434/v1" || remote.Price.Input != 0.1 {
+		t.Errorf("remote: url %q price %+v, want both kept", remote.URL, *remote.Price)
+	}
+}
+
 func TestParseFullExample(t *testing.T) {
 	const full = `
 scenario: standard-v1

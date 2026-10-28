@@ -51,6 +51,10 @@ type Price struct {
 	CacheWrite float64 `yaml:"cache_write"`
 }
 
+// OllamaURL is where an ollama target without a url is probed: a local Ollama
+// serves its OpenAI-compatible API there.
+const OllamaURL = "http://localhost:11434/v1"
+
 // DefaultPrice applies to targets without a price block. It is deliberately
 // high so a missing price overestimates cost instead of overspending.
 var DefaultPrice = Price{Input: 3.00, Output: 15.00, CacheRead: 0.30, CacheWrite: 3.75}
@@ -109,8 +113,14 @@ func Parse(data []byte, lookup func(string) (string, bool)) (*Config, error) {
 		if cfg.Targets[i].Interval == 0 {
 			cfg.Targets[i].Interval = cfg.Interval
 		}
+		if cfg.Targets[i].Format == "ollama" && cfg.Targets[i].URL == "" {
+			cfg.Targets[i].URL = OllamaURL
+		}
 		if cfg.Targets[i].Price == nil {
 			p := DefaultPrice
+			if cfg.Targets[i].Format == "ollama" {
+				p = Price{} // local models are free; the default would exhaust the budget
+			}
 			cfg.Targets[i].Price = &p
 		}
 	}

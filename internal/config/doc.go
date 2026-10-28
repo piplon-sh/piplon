@@ -24,4 +24,6 @@
 // Each target may set price (USD per million tokens: input, output,
 // cache_read, cache_write, all >= 0). Without a price block a target gets
 // DefaultPrice, deliberately high; inside a block, omitted fields are 0.
+// An ollama target without a url probes OllamaURL (a local Ollama), and
+// without a price block it is free, so a local model never hits the budget.
 package config

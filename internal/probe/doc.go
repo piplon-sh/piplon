@@ -31,6 +31,10 @@
 // finish_reason of "content_filter" is recorded as "refused", followed by the
 // filtered categories when the server lists them in content_filter_results.
 //
+// ForTarget returns the adapter for a configured target's format; formats the
+// config accepts but no adapter implements yet (bedrock, google) wrap
+// ErrUnsupported. ollama uses the OpenAI adapter.
+//
 // Scheduler runs one Job per target until its context is cancelled:
 //
 //   - a probe at start, then one per Job.Interval;
@@ -49,5 +53,7 @@
 //
 // Budget is a daily USD cap that resets at 00:00 UTC. The estimate prices
 // every turn as uncached input at the scenario's target size plus maximum
-// output, so it errs high. Seed restores the day's spend after a restart.
+// output, so it errs high. Seed restores the day's spend after a restart;
+// SamplesCost prices stored samples for it. A probe charged its estimate for
+// lack of usage is priced from its samples alone after a restart.
 package probe
