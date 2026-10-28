@@ -42,16 +42,14 @@ It learns a baseline per hour and weekday, opens and closes incidents, and tells
 ```
 $ piplon run
 
-piplon 0.1.0 · standard-v1 · 3 targets · every 5 m · budget 5.00 USD/day
+piplon 0.1.0 · standard-v1 · 2 targets · every 1m · 0.0527 of 5.00 USD today
 
-TARGET                 STATE       TTFT p50   ERR 1h   CACHE   LAST
-anthropic-direct       ok          412 ms     0.0 %    hit     3 s ago
-anthropic-via-gateway  cache_miss  455 ms     0.0 %    miss    3 s ago
-bedrock-eu-west-1      errors      -          14 %     -       3 s ago
-
-anthropic-via-gateway  gateway drops cache_control on turn 2, misses since 11:40
-bedrock-eu-west-1      ThrottlingException on 14 % of probes since 14:05
+TARGET                 STATE   TTFT p50  ERR 1h  CACHE  LAST      NOTE
+anthropic-direct       ok      1240 ms   0.0 %   hit    3 s ago
+anthropic-via-gateway  errors  1610 ms   10.0 %  -      41 s ago  turn 1: overloaded_error: Overloaded
 ```
+
+On a terminal the table redraws every second; on a narrow one NOTE, then LAST, are hidden. Anywhere else (systemd, Docker, a pipe) `piplon run` writes one JSON log line per probe instead. A Sonnet 4.5 probe costs about 0.0085 USD when it writes the prompt cache and 0.0021 USD when it reads it.
 
 ## Install
 

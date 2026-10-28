@@ -6,15 +6,18 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 
 	"github.com/piplon-sh/piplon/internal/config"
 	"github.com/piplon-sh/piplon/internal/probe"
 	"github.com/piplon-sh/piplon/internal/scenario"
 	"github.com/piplon-sh/piplon/internal/store"
+	"github.com/piplon-sh/piplon/internal/version"
 )
 
 // retentionEvery is how often old samples are pruned.
@@ -27,15 +30,20 @@ func newRunCmd() *cobra.Command {
 		Short: "Probe every configured target on a schedule",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return run(cmd.Context(), path, newLogger(cmd.ErrOrStderr()))
+			if f, ok := cmd.OutOrStdout().(*os.File); ok && term.IsTerminal(f.Fd()) {
+				view := &liveTable{w: f, width: func() int { return termWidth(f) }}
+				return run(cmd.Context(), path, view.logger(), view)
+			}
+			return run(cmd.Context(), path, newLogger(cmd.ErrOrStderr()), nil)
 		},
 	}
 	cmd.Flags().StringVarP(&path, "config", "c", "piplon.yaml", "path to the config file")
 	return cmd
 }
 
-// run probes until ctx is cancelled, storing every outcome.
-func run(ctx context.Context, path string, log *slog.Logger) error {
+// run probes until ctx is cancelled, storing every outcome. A non-nil view
+// shows the live table.
+func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) error {
 	cfg, err := config.Load(path)
 	if err != nil {
 		return err
@@ -73,7 +81,24 @@ func run(ctx context.Context, path string, log *slog.Logger) error {
 		Jitter:      cfg.Jitter,
 		Concurrency: cfg.Concurrency,
 		Budget:      budget,
-		Report:      func(o probe.Outcome) { record(ctx, db, log, o) },
+		Report: func(o probe.Outcome) {
+			record(ctx, db, log, o)
+			if view != nil && ctx.Err() == nil {
+				view.update(ctx, o)
+			}
+		},
+	}
+	if view != nil {
+		names := make([]string, len(jobs))
+		for i, j := range jobs {
+			names[i] = j.Target
+		}
+		header := func() string {
+			return fmt.Sprintf("piplon %s · %s · %d targets · every %s · %.4f of %.2f USD today",
+				version.Version, sc.ID(), len(jobs), short(cfg.Interval), budget.Spent(), cfg.Budget.DailyUSD)
+		}
+		view.start(header, names, db, sc.Cache.ExpectHitFromTurn)
+		wg.Go(func() { view.run(ctx) })
 	}
 	log.Info("piplon running", "scenario", sc.ID(), "targets", len(jobs),
 		"budget_usd", cfg.Budget.DailyUSD, "spent_today_usd", spent, "store", cfg.Store.Path)
@@ -145,6 +170,26 @@ func record(ctx context.Context, db store.Store, log *slog.Logger, o probe.Outco
 		return
 	}
 	log.Info("probe done", attrs...)
+}
+
+// short drops zero minutes and seconds: 5m, 1h, 1m30s.
+func short(d time.Duration) string {
+	s := d.String()
+	if strings.HasSuffix(s, "m0s") {
+		s = strings.TrimSuffix(s, "0s")
+	}
+	if strings.HasSuffix(s, "h0m") {
+		s = strings.TrimSuffix(s, "0m")
+	}
+	return s
+}
+
+// termWidth is the terminal's width, 80 when it cannot be read.
+func termWidth(f *os.File) int {
+	if w, _, err := term.GetSize(f.Fd()); err == nil && w > 0 {
+		return w
+	}
+	return 80
 }
 
 // newLogger writes JSON, or text when w is a terminal.

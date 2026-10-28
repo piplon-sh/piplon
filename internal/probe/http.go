@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -28,6 +29,11 @@ const errToolCall = "tool call instead of text"
 // the provider's category after a colon when it gives one ("refused: bio").
 // It is not an empty reply: the model did answer, with a refusal.
 const errRefused = "refused"
+
+// Refused reports whether the model declined to answer this turn.
+func (t Turn) Refused() bool {
+	return t.Error == errRefused || strings.HasPrefix(t.Error, errRefused+": ")
+}
 
 func refusal(category string) string {
 	if category == "" {
