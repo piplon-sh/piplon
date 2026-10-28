@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
@@ -39,13 +38,6 @@ func TestVersion(t *testing.T) {
 func TestUnknownCommand(t *testing.T) {
 	if _, err := execute(t, "nope"); err == nil {
 		t.Fatal("expected an error for an unknown command")
-	}
-}
-
-func TestRunIsAStub(t *testing.T) {
-	_, err := execute(t, "run")
-	if !errors.Is(err, errNotImplemented) {
-		t.Fatalf("got %v, want errNotImplemented", err)
 	}
 }
 

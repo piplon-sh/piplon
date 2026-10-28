@@ -92,12 +92,24 @@ const perMillion = 1e6
 func cost(p config.Price, turns []Turn) float64 {
 	var usd float64
 	for _, t := range turns {
-		usd += float64(t.InputTokens)*p.Input +
-			float64(t.OutputTokens)*p.Output +
-			float64(t.CacheReadTokens)*p.CacheRead +
-			float64(t.CacheWriteTokens)*p.CacheWrite
+		usd += priced(p, t.InputTokens, t.OutputTokens, t.CacheReadTokens, t.CacheWriteTokens)
 	}
 	return usd / perMillion
+}
+
+// SamplesCost is what stored samples cost at price p, for example to seed the
+// Budget with today's spend after a restart.
+func SamplesCost(p config.Price, samples []store.Sample) float64 {
+	var usd float64
+	for _, s := range samples {
+		usd += priced(p, s.InputTokens, s.OutputTokens, s.CacheReadTokens, s.CacheWriteTokens)
+	}
+	return usd / perMillion
+}
+
+func priced(p config.Price, in, out, cacheRead, cacheWrite int) float64 {
+	return float64(in)*p.Input + float64(out)*p.Output +
+		float64(cacheRead)*p.CacheRead + float64(cacheWrite)*p.CacheWrite
 }
 
 // estimate is the worst-case cost of one probe of s: every turn at full
