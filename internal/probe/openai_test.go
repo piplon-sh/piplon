@@ -116,6 +116,16 @@ func TestOpenAIFailures(t *testing.T) {
 			turns:   1, status: 200, errContains: "tool call instead of text",
 		},
 		{
+			name:    "content filter without a category",
+			replies: []reply{{status: 200, fixture: "content_filter.sse"}},
+			turns:   1, status: 200, errContains: "refused",
+		},
+		{
+			name:    "content filter names its categories, partial text ignored",
+			replies: []reply{{status: 200, fixture: "content_filter_categories.sse"}},
+			turns:   1, status: 200, errContains: "refused: self_harm,violence",
+		},
+		{
 			name:    "stream ends without [DONE]",
 			replies: []reply{{status: 200, fixture: "stream_cut.sse"}},
 			turns:   1, status: 200, errContains: "stream ended before [DONE]", cut: true,

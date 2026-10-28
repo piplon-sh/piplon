@@ -72,7 +72,11 @@ type anthropicEvent struct {
 		Type string `json:"type"`
 	} `json:"content_block"`
 	Delta struct {
-		Text string `json:"text"`
+		Text        string `json:"text"`
+		StopReason  string `json:"stop_reason"`
+		StopDetails struct {
+			Category string `json:"category"`
+		} `json:"stop_details"`
 	} `json:"delta"`
 	Usage anthropicUsage `json:"usage"`
 	Error apiError       `json:"error"`
@@ -149,7 +153,8 @@ func (a *Anthropic) turn(ctx context.Context, s *scenario.Scenario, msgs []anthr
 // readAnthropicStream fills turn from the event stream and returns the text.
 func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote func() time.Time) string {
 	var text strings.Builder
-	var gotDelta, done, toolUse bool
+	var gotDelta, done, toolUse, refused bool
+	var category string
 	err := readSSE(body, func(_ string, data []byte) bool {
 		var ev anthropicEvent
 		if err := json.Unmarshal(data, &ev); err != nil {
@@ -171,6 +176,9 @@ func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote 
 			text.WriteString(ev.Delta.Text)
 		case "message_delta":
 			turn.OutputTokens = ev.Usage.OutputTokens // cumulative
+			if ev.Delta.StopReason == "refusal" {
+				refused, category = true, ev.Delta.StopDetails.Category
+			}
 		case "message_stop":
 			done = true
 			return false
@@ -189,6 +197,8 @@ func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote 
 	case !done:
 		turn.StreamCut = true
 		turn.Error = "stream ended before message_stop"
+	case refused:
+		turn.Error = refusal(category)
 	case text.Len() == 0 && toolUse:
 		turn.Error = errToolCall
 	case text.Len() == 0:

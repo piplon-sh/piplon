@@ -24,6 +24,18 @@ const (
 // the scenario asks for text, and there is nothing to carry forward.
 const errToolCall = "tool call instead of text"
 
+// errRefused starts the error of a turn the model declined to answer, with
+// the provider's category after a colon when it gives one ("refused: bio").
+// It is not an empty reply: the model did answer, with a refusal.
+const errRefused = "refused"
+
+func refusal(category string) string {
+	if category == "" {
+		return errRefused
+	}
+	return errRefused + ": " + category
+}
+
 // defaultClient has no timeout of its own: the probe context bounds it.
 var defaultClient = &http.Client{}
 

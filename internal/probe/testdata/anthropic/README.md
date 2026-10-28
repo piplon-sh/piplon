@@ -14,6 +14,7 @@ next to them in `recorded/`, see below.
 | `stream_error.sse` | an `error` event (overloaded) in the middle of a stream |
 | `tool_use.sse` | the model calls a tool instead of answering in text |
 | `stream_cut.sse` | a stream that ends without `message_stop` |
+| `refusal_bio.sse` | **recorded**, not synthetic: claude-sonnet-4-5 refusing the earlier random-word padding. No content block at all; `message_delta` carries `stop_reason: refusal` and `stop_details` with `type: refusal` and `category: bio` |
 | `overloaded_529.json` | the error body returned with HTTP 529 |
 | `request_turn1.golden.json` | the exact request body of turn 1 |
 | `request_turn3.golden.json` | the exact request body of turn 3, with history |

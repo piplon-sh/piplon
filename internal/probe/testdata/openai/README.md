@@ -13,6 +13,8 @@ next to them in `recorded/`, see below.
 | `wrong_answer.sse` | a complete stream whose text fails the turn's expectation |
 | `stream_error.sse` | an `error` object sent as a stream chunk |
 | `tool_call.sse` | the model calls a tool instead of answering in text |
+| `content_filter.sse` | the answer stops with `finish_reason: content_filter`, no category |
+| `content_filter_categories.sse` | the same after partial text, with Azure-style `content_filter_results` |
 | `stream_cut.sse` | a stream that ends without `data: [DONE]` |
 | `rate_limited_429.json` | the error body returned with HTTP 429 |
 | `request_turn1.golden.json` | the exact request body of turn 1 |

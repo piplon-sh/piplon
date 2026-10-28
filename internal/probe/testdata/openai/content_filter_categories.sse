@@ -1,0 +1,8 @@
+data: {"id":"chatcmpl-fixture-8","object":"chat.completion.chunk","created":1761000000,"model":"gpt-fixture","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-fixture-8","object":"chat.completion.chunk","created":1761000000,"model":"gpt-fixture","choices":[{"index":0,"delta":{"content":"I can"},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-fixture-8","object":"chat.completion.chunk","created":1761000000,"model":"gpt-fixture","choices":[{"index":0,"delta":{},"finish_reason":"content_filter","content_filter_results":{"violence":{"filtered":true,"severity":"medium"},"hate":{"filtered":false,"severity":"safe"},"self_harm":{"filtered":true,"severity":"high"}}}],"usage":null}
+
+data: [DONE]
+
