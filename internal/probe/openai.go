@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -60,6 +61,11 @@ type openaiChunk struct {
 			Content   string          `json:"content"`
 			ToolCalls json.RawMessage `json:"tool_calls"`
 		} `json:"delta"`
+		FinishReason string `json:"finish_reason"`
+		// Some servers name what a content filter caught (Azure OpenAI).
+		ContentFilterResults map[string]struct {
+			Filtered bool `json:"filtered"`
+		} `json:"content_filter_results"`
 	} `json:"choices"`
 	Usage *struct {
 		PromptTokens        int `json:"prompt_tokens"`
@@ -140,7 +146,8 @@ func (o *OpenAI) turn(ctx context.Context, s *scenario.Scenario, msgs []openaiMe
 // role-only chunk servers send first.
 func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote func() time.Time) string {
 	var text strings.Builder
-	var gotDelta, done, toolCall bool
+	var gotDelta, done, toolCall, refused bool
+	var filtered []string
 	err := readSSE(body, func(_ string, data []byte) bool {
 		if string(data) == "[DONE]" {
 			done = true
@@ -164,6 +171,14 @@ func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote fun
 				turn.TTFT = time.Since(wrote())
 			}
 			text.WriteString(c.Delta.Content)
+			if c.FinishReason == "content_filter" {
+				refused = true
+				for name, r := range c.ContentFilterResults {
+					if r.Filtered {
+						filtered = append(filtered, name)
+					}
+				}
+			}
 		}
 		if u := ch.Usage; u != nil {
 			turn.CacheReadTokens = u.PromptTokensDetails.CachedTokens
@@ -180,6 +195,9 @@ func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote fun
 	case !done:
 		turn.StreamCut = true
 		turn.Error = "stream ended before [DONE]"
+	case refused:
+		slices.Sort(filtered)
+		turn.Error = refusal(strings.Join(filtered, ","))
 	case text.Len() == 0 && toolCall:
 		turn.Error = errToolCall
 	case text.Len() == 0:

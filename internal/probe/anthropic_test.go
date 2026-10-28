@@ -115,6 +115,11 @@ func TestAnthropicFailures(t *testing.T) {
 			turns:   1, status: 200, errContains: "tool call instead of text",
 		},
 		{
+			name:    "refusal with a category and no content block",
+			replies: []reply{{status: 200, fixture: "refusal_bio.sse"}},
+			turns:   1, status: 200, errContains: "refused: bio",
+		},
+		{
 			name:    "second turn fails after a good first",
 			replies: []reply{{status: 200, fixture: "turn1.sse"}, {status: 529, fixture: "overloaded_529.json"}},
 			turns:   2, status: 529, providerError: "overloaded_error", errContains: "Overloaded",

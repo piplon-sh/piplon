@@ -16,8 +16,10 @@
 // message_stop). A transport, HTTP or stream failure ends the conversation; an
 // answer that misses its expectation does not, so cache reads on later turns
 // are still measured. A reply that is a tool call with no text is recorded as
-// "tool call instead of text" and ends the conversation. Errors never contain
-// the key.
+// "tool call instead of text" and ends the conversation. A reply that stops
+// with stop_reason "refusal" is recorded as "refused", or "refused: <category>"
+// from stop_details.category, never as an empty reply; it ends the
+// conversation too. Errors never contain the key.
 //
 // OpenAI is the adapter for OpenAI-compatible Chat Completions endpoints
 // (OpenAI, OpenRouter, Groq, Together, LiteLLM, vLLM, Ollama's OpenAI API).
@@ -25,7 +27,9 @@
 // it sends no cache markers; prompt_tokens_details.cached_tokens becomes
 // CacheReadTokens and is subtracted from InputTokens. It asks for a final usage
 // chunk with stream_options.include_usage, sends no Authorization header when
-// the key is empty, and treats a stream without data: [DONE] as cut.
+// the key is empty, and treats a stream without data: [DONE] as cut. A
+// finish_reason of "content_filter" is recorded as "refused", followed by the
+// filtered categories when the server lists them in content_filter_results.
 //
 // Scheduler runs one Job per target until its context is cancelled:
 //
