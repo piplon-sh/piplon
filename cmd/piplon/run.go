@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 
+	"github.com/piplon-sh/piplon/internal/analyze"
 	"github.com/piplon-sh/piplon/internal/config"
 	"github.com/piplon-sh/piplon/internal/probe"
 	"github.com/piplon-sh/piplon/internal/scenario"
@@ -74,6 +75,7 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 	defer wg.Wait()
 	wg.Go(func() { db.RunRetention(ctx, time.Duration(cfg.Store.Retention), retentionEvery, log) })
 
+	an := analyze.New(db, sc.ID(), sc.Cache.ExpectHitFromTurn)
 	sched := &probe.Scheduler{
 		Scenario:    sc,
 		Jobs:        jobs,
@@ -83,8 +85,12 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 		Budget:      budget,
 		Report: func(o probe.Outcome) {
 			record(ctx, db, log, o)
-			if view != nil && ctx.Err() == nil {
-				view.update(ctx, o)
+			if ctx.Err() != nil {
+				return
+			}
+			st := observe(ctx, an, log, o)
+			if view != nil {
+				view.update(ctx, o, st)
 			}
 		},
 	}
@@ -97,7 +103,7 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 			return fmt.Sprintf("piplon %s · %s · %d targets · every %s · %.4f of %.2f USD today",
 				version.Version, sc.ID(), len(jobs), short(cfg.Interval), budget.Spent(), cfg.Budget.DailyUSD)
 		}
-		view.start(header, names, db, sc.Cache.ExpectHitFromTurn)
+		view.start(header, names, db)
 		wg.Go(func() { view.run(ctx) })
 	}
 	log.Info("piplon running", "scenario", sc.ID(), "targets", len(jobs),
@@ -170,6 +176,23 @@ func record(ctx context.Context, db store.Store, log *slog.Logger, o probe.Outco
 		return
 	}
 	log.Info("probe done", attrs...)
+}
+
+// observe judges one outcome and logs a confirmed change of state.
+func observe(ctx context.Context, an *analyze.Analyzer, log *slog.Logger, o probe.Outcome) analyze.Status {
+	st, err := an.Observe(ctx, o)
+	if err != nil {
+		log.Error("baseline not learned", "target", o.Target, "scenario", o.Scenario, "err", err)
+	}
+	if st.Changed {
+		attrs := []any{"target", o.Target, "scenario", o.Scenario, "state", st.State}
+		if st.State == analyze.OK {
+			log.Info("target state changed", attrs...)
+		} else {
+			log.Warn("target state changed", append(attrs, "detail", st.Last.Detail)...)
+		}
+	}
+	return st
 }
 
 // short drops zero minutes and seconds: 5m, 1h, 1m30s.

@@ -7,34 +7,31 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/piplon-sh/piplon/internal/analyze"
 	"github.com/piplon-sh/piplon/internal/probe"
 	"github.com/piplon-sh/piplon/internal/store"
 )
 
-func okTurn(cacheRead int) probe.Turn {
-	return probe.Turn{ExpectOK: true, CacheReadTokens: cacheRead}
-}
-
-func TestApplyTick(t *testing.T) {
+func TestApply(t *testing.T) {
 	start := time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)
+	down := analyze.Verdict{State: analyze.Down, Cache: "-", Detail: "turn 1: http 401: authentication_error: invalid x-api-key"}
 	tests := []struct {
 		name               string
 		o                  probe.Outcome
+		st                 analyze.Status
 		state, cache, note string
 	}{
-		{"all good reads the cache", probe.Outcome{Turns: []probe.Turn{okTurn(0), okTurn(2000), okTurn(2000)}}, "ok", "hit", ""},
-		{"turn 3 misses the cache", probe.Outcome{Turns: []probe.Turn{okTurn(0), okTurn(2000), okTurn(0)}}, "ok", "miss", ""},
-		{"refusal on turn 1", probe.Outcome{Turns: []probe.Turn{{Error: "refused: bio", HTTPStatus: 200}}}, "refused", "-", "turn 1: refused: bio"},
-		{"model gone", probe.Outcome{Turns: []probe.Turn{{Error: "not_found_error: model: m", HTTPStatus: 404}}}, "gone", "-", "turn 1: not_found_error: model: m"},
-		{"overloaded on turn 2", probe.Outcome{Turns: []probe.Turn{okTurn(0), {Error: "overloaded_error: Overloaded", HTTPStatus: 529}}}, "errors", "-", "turn 2: overloaded_error: Overloaded"},
-		{"wrong answer", probe.Outcome{Turns: []probe.Turn{okTurn(0), {CacheReadTokens: 2000}, okTurn(2000)}}, "errors", "hit", "turn 2: answer missed its expectation"},
-		{"budget", probe.Outcome{Skipped: probe.SkipBudget}, "budget", "-", "daily budget reached"},
+		{"ok", probe.Outcome{}, analyze.Status{State: analyze.OK, Last: analyze.Verdict{State: analyze.OK, Cache: "hit"}}, "ok", "hit", ""},
+		{"confirmed", probe.Outcome{}, analyze.Status{State: analyze.Down, Last: down}, "down", "-", down.Detail},
+		{"pending", probe.Outcome{}, analyze.Status{State: analyze.OK, Pending: analyze.Down, Count: 1, Last: down}, "ok", "-", "down 1/3 · " + down.Detail},
+		{"closing", probe.Outcome{}, analyze.Status{State: analyze.Down, Pending: analyze.OK, Count: 2, Last: analyze.Verdict{State: analyze.OK, Cache: "hit"}}, "down", "hit", "ok 2/3"},
+		{"budget", probe.Outcome{Skipped: probe.SkipBudget}, analyze.Status{State: analyze.Errors}, "budget", "-", "daily budget reached"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.o.Start = start
 			r := row{State: statePending, Cache: "-"}
-			r.applyTick(tt.o, 2)
+			r.apply(tt.o, tt.st)
 			if r.State != tt.state || r.Cache != tt.cache || r.Note != tt.note || !r.Last.Equal(start) {
 				t.Errorf("got state=%q cache=%q note=%q last=%v, want %q %q %q", r.State, r.Cache, r.Note, r.Last, tt.state, tt.cache, tt.note)
 			}
@@ -44,7 +41,7 @@ func TestApplyTick(t *testing.T) {
 
 func TestOverlapKeepsTheLastState(t *testing.T) {
 	r := row{State: "errors", Cache: "miss"}
-	r.applyTick(probe.Outcome{Skipped: probe.SkipOverlap}, 2)
+	r.apply(probe.Outcome{Skipped: probe.SkipOverlap}, analyze.Status{State: analyze.Errors})
 	if r.State != "errors" || r.Cache != "miss" || r.Note != "previous probe still running" {
 		t.Errorf("got %+v", r)
 	}
@@ -118,7 +115,7 @@ func TestShort(t *testing.T) {
 func TestLiveTableRedrawsInPlace(t *testing.T) {
 	var out syncBuffer
 	l := &liveTable{w: &out, width: func() int { return 80 }}
-	l.start(func() string { return "piplon dev · standard-v1 · 1 targets" }, []string{"fake"}, nil, 2)
+	l.start(func() string { return "piplon dev · standard-v1 · 1 targets" }, []string{"fake"}, nil)
 	now := time.Now()
 	l.draw(now)
 	if got := out.String(); !strings.Contains(got, "fake") || !strings.Contains(got, statePending) || strings.Contains(got, "\x1b[") {
