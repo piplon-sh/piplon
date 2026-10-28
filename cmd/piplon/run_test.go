@@ -217,3 +217,29 @@ func TestRunNamesAMissingConfig(t *testing.T) {
 		t.Fatalf("got %v, want an error naming the file", err)
 	}
 }
+
+func TestRunClosesIncidentsOfRemovedTargets(t *testing.T) {
+	url, _ := fakeAnthropic(t)
+	path, dbPath := writeConfig(t, "anthropic", url, 5)
+	db, err := store.Open(t.Context(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.OpenIncident(t.Context(), store.Incident{Target: "removed", Scenario: "standard-v1", State: "down", Opened: time.Now().Add(-time.Hour)})
+	_ = db.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var logs syncBuffer
+	stop := startRun(t, path, &logs)
+	waitFor(t, "the first probe", func() bool { return strings.Contains(logs.String(), "probe done") })
+	if err := stop(); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"msg":"incident closed"`, `"target":"removed"`, `"resolved":false`, `"close_cause":"target removed from config"`} {
+		if !strings.Contains(logs.String(), want) {
+			t.Errorf("logs are missing %s:\n%s", want, logs.String())
+		}
+	}
+}

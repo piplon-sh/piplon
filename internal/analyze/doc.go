@@ -26,6 +26,12 @@
 // least 80 % of probes. A target that never reads the cache is never a miss.
 // Without a baseline neither learned state is given.
 //
+// Every non-ok Verdict carries a probable cause, one sentence an operator can
+// act on: a rejected key (401, 403), a rate limit (429), an overloaded
+// provider (529), a server error, a timeout, a cut stream, no HTTP answer
+// (DNS, TLS, network), a model not found, a refusal with its category, or a
+// slower than usual or no longer cached path.
+//
 // Status applies hysteresis. The first probe's verdict sets State at once, so
 // a bad key shows as down after one probe; after that, State changes only
 // after Confirm (3) probes in a row agree on the new one, to open as well as
@@ -41,4 +47,14 @@
 // (budget, overlap) leave the status unchanged. A store error keeps the
 // previous baseline and is returned for the caller to log. Confirming tells
 // the scheduler whether a target's latest probe needs confirming.
+//
+// Observe also keeps one incident per episode in the store. It opens once the
+// target has been in a non-ok State for Confirm probes in a row, including
+// right after start, where the first probe already set the State. While open,
+// a confirmed change of state updates its state and cause; back to ok, it is
+// closed as resolved. Status.Event and Status.Incident report what the latest
+// probe did. A store error leaves the incident as it was and the next probe
+// tries again. Restore, at start, resumes the open incidents of configured
+// targets, which start in the incident's state, and closes the others as
+// "target removed from config", never resolved.
 package analyze

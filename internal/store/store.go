@@ -46,6 +46,10 @@ type Store interface {
 	Insert(ctx context.Context, samples ...Sample) error
 	Samples(ctx context.Context, q Query) ([]Sample, error)
 	Prune(ctx context.Context, cutoff time.Time) (int64, error)
+	OpenIncident(ctx context.Context, inc Incident) (int64, error)
+	UpdateIncident(ctx context.Context, inc Incident) error
+	CloseIncident(ctx context.Context, id int64, at time.Time, cause string, resolved bool) error
+	OpenIncidents(ctx context.Context) ([]Incident, error)
 	Close() error
 }
 
