@@ -16,6 +16,17 @@
 // Insert writes a batch atomically, Samples reads with optional target and
 // time window filters, Prune deletes samples older than a cutoff, and
 // RunRetention prunes once at start and then on every tick until its context
-// is cancelled. Store is the interface the rest of piplon depends on; *DB is
-// its SQLite implementation.
+// is cancelled.
+//
+// An Incident is one episode of a target out of ok. A target has at most one
+// open incident, enforced by a partial unique index. OpenIncident stores it,
+// UpdateIncident follows its state and cause while open, CloseIncident closes
+// it with a close cause and Resolved, and OpenIncidents lists the open ones.
+// Resolved is true only when the target came back to ok: an administrative
+// close, such as a target removed from the config, is not a resolution and
+// must never be announced as one. Updating or closing an incident that is not
+// open returns ErrNoOpenIncident. Incidents are not pruned by retention.
+//
+// Store is the interface the rest of piplon depends on; *DB is its SQLite
+// implementation.
 package store

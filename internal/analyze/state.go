@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/piplon-sh/piplon/internal/probe"
+	"github.com/piplon-sh/piplon/internal/store"
 )
 
 // State is what a target is going through.
@@ -39,7 +40,8 @@ const (
 // Verdict is one probe judged on its own, before hysteresis.
 type Verdict struct {
 	State  State
-	Detail string // why it is not ok, empty when it is
+	Detail string // what was measured, empty when ok
+	Cause  string // the probable cause, empty when ok
 	Cache  string // hit, miss, or - when no cache turn completed or none is expected
 }
 
@@ -51,19 +53,19 @@ func Classify(o probe.Outcome, base Stats, learned bool, cacheFrom int) Verdict 
 	v := Verdict{State: OK, Cache: cacheState(o.Turns, cacheFrom)}
 	for i, t := range o.Turns {
 		if s, detail := failure(i, t); severity[s] > severity[v.State] {
-			v.State, v.Detail = s, detail
+			v.State, v.Detail, v.Cause = s, detail, cause(s, t)
 		}
 	}
 	if v.State != OK || !learned {
 		return v
 	}
 	if ttft := middle(o.Turns); float64(ttft) > max(float64(base.TTFT95), slowFactor*float64(base.TTFT50)) {
-		v.State = Slow
+		v.State, v.Cause = Slow, causeSlow
 		v.Detail = fmt.Sprintf("TTFT %d ms, usually %d ms", ttft.Milliseconds(), base.TTFT50.Milliseconds())
 		return v
 	}
 	if v.Cache == "miss" && base.CacheShare >= cachedShare {
-		v.State = CacheMiss
+		v.State, v.Cause = CacheMiss, causeCacheMiss
 		v.Detail = fmt.Sprintf("cache not read, usually read by %.0f %% of probes", 100*base.CacheShare)
 	}
 	return v
@@ -128,6 +130,13 @@ type Status struct {
 	Last    Verdict // the latest probe sent
 	Changed bool    // the latest probe confirmed a new State; never on the first
 	Failing int     // hard failures in a row, of any state, up to the latest probe
+	Streak  int     // probes in a row judged State, up to the latest probe
+
+	// Set by Analyzer: what the latest probe did to the target's incident,
+	// and that incident, open or just closed. Incident is zero when there is
+	// none.
+	Event    Event
+	Incident store.Incident
 }
 
 // Confirming reports whether the latest probe failed hard and fewer than
@@ -145,16 +154,18 @@ func (s *Status) observe(v Verdict) {
 	}
 	switch {
 	case s.State == "":
-		s.State = v.State
+		s.State, s.Streak = v.State, 1
 		return
 	case v.State == s.State:
 		s.Pending, s.Count = "", 0
+		s.Streak++
 		return
 	case v.State != s.Pending:
 		s.Pending, s.Count = v.State, 0
 	}
 	s.Count++
+	s.Streak = 0
 	if s.Count >= Confirm {
-		s.State, s.Pending, s.Count, s.Changed = v.State, "", 0, true
+		s.State, s.Pending, s.Streak, s.Count, s.Changed = v.State, "", s.Count, 0, true
 	}
 }
