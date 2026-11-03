@@ -53,6 +53,7 @@ type Store interface {
 	Due(ctx context.Context, now time.Time, limit int) ([]Notification, error)
 	Delivered(ctx context.Context, id int64, at time.Time) error
 	Failed(ctx context.Context, id int64, next time.Time, reason string) error
+	Abandon(ctx context.Context, id int64, at time.Time, reason string) error
 	Close() error
 }
 

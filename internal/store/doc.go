@@ -32,9 +32,12 @@
 // the incident change, queue one Notification per channel with a JSON
 // snapshot of the incident as the event left it: a crash cannot lose an event
 // nor queue one for a change that did not happen, and a unique index on
-// (incident, event, instant, channel) queues each event once. Due lists the
-// undelivered notifications whose next attempt has come, Delivered marks one
-// sent, and Failed counts an attempt and sets the next one.
+// (incident, event, instant, channel) queues each event once. Delivery is at
+// least once: a crash between a send and Delivered sends it again. Due lists
+// the pending notifications whose next attempt has come, never one behind a
+// pending earlier event of the same incident and channel. Delivered marks one
+// sent, Failed counts an attempt and sets the next one, and Abandon gives up
+// on one, which lets the next event of that incident through.
 //
 // Store is the interface the rest of piplon depends on; *DB is its SQLite
 // implementation.

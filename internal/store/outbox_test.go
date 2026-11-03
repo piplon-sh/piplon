@@ -7,6 +7,28 @@ import (
 
 var channels = []string{"slack", "webhook"}
 
+// drain delivers everything due at now, round after round, in the order Due
+// gives it.
+func drain(t *testing.T, db *DB, now time.Time) []Notification {
+	t.Helper()
+	var out []Notification
+	for {
+		due, err := db.Due(t.Context(), now, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(due) == 0 {
+			return out
+		}
+		for _, n := range due {
+			if err := db.Delivered(t.Context(), n.ID, now); err != nil {
+				t.Fatal(err)
+			}
+		}
+		out = append(out, due...)
+	}
+}
+
 func TestIncidentEventsAreQueuedPerChannel(t *testing.T) {
 	db, _ := openTemp(t)
 	ctx := t.Context()
@@ -25,10 +47,7 @@ func TestIncidentEventsAreQueuedPerChannel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	due, err := db.Due(ctx, opened.Add(2*time.Hour), 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	due := drain(t, db, opened.Add(2*time.Hour))
 	want := []struct{ event, channel, state string }{
 		{EventOpened, "slack", "down"}, {EventOpened, "webhook", "down"},
 		{EventUpdated, "slack", "errors"}, {EventUpdated, "webhook", "errors"},
@@ -92,5 +111,38 @@ func TestDeliveryAndRetry(t *testing.T) {
 	}
 	if got, _ := db.Due(ctx, now.Add(time.Minute), 1); len(got) != 1 {
 		t.Errorf("limit: got %d", len(got))
+	}
+}
+
+func TestAnIncidentsEventsGoInOrderPerChannel(t *testing.T) {
+	db, _ := openTemp(t)
+	ctx := t.Context()
+	now := time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)
+	inc := Incident{Target: "a", State: "down", Opened: now}
+	var err error
+	if inc.ID, err = db.OpenIncident(ctx, inc, []string{"slack"}); err != nil {
+		t.Fatal(err)
+	}
+	inc.Closed, inc.Resolved = now.Add(time.Minute), true
+	if err := db.CloseIncident(ctx, inc, []string{"slack"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.OpenIncident(ctx, Incident{Target: "b", State: "down", Opened: now}, []string{"slack"}); err != nil {
+		t.Fatal(err)
+	}
+	due, _ := db.Due(ctx, now.Add(time.Hour), 10)
+	if len(due) != 2 || due[0].Incident.Target != "a" || due[0].Event != EventOpened || due[1].Incident.Target != "b" {
+		t.Fatalf("got %+v, want a's opening and b's, not a's close", due)
+	}
+	// a's opening fails and waits: its close stays behind it, b is not held up.
+	_ = db.Failed(ctx, due[0].ID, now.Add(2*time.Hour), "http 503")
+	_ = db.Delivered(ctx, due[1].ID, now)
+	if got, _ := db.Due(ctx, now.Add(time.Hour), 10); len(got) != 0 {
+		t.Errorf("a's close went ahead of its opening: %+v", got)
+	}
+	_ = db.Abandon(ctx, due[0].ID, now.Add(time.Hour), "gave up")
+	got, _ := db.Due(ctx, now.Add(time.Hour), 10)
+	if len(got) != 1 || got[0].Event != EventClosed {
+		t.Errorf("after abandoning the opening: got %+v, want a's close", got)
 	}
 }
