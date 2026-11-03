@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -147,6 +148,12 @@ func transportError(ctx context.Context, err error) string {
 	case errors.Is(ctx.Err(), context.Canceled):
 		return "canceled"
 	default:
+		// net/http quotes the method and the full URL, which may carry a
+		// gateway's account or token in its path; the cause is enough.
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			return ue.Err.Error()
+		}
 		return err.Error()
 	}
 }

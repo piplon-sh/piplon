@@ -47,12 +47,25 @@ func TestProviderMessageRedactsTheExactKey(t *testing.T) {
 	}
 }
 
-func TestTransportErrorsAreRedacted(t *testing.T) {
+func TestTransportErrorsNameTheCauseNotTheURL(t *testing.T) {
 	key := config.Secret("piplon-test-key-0123")
 	// Port 1 on loopback refuses at once; the URL path quotes the key.
-	a := &Anthropic{URL: "http://127.0.0.1:1/piplon-test-key-0123", Model: "m", Key: key}
-	res := a.Probe(t.Context(), loadScenario(t))
-	if len(res.Turns) != 1 || strings.Contains(res.Turns[0].Error, string(key)) || !strings.Contains(res.Turns[0].Error, "[redacted]") {
-		t.Errorf("got %+v", res.Turns)
+	for _, p := range []Prober{
+		&Anthropic{URL: "http://127.0.0.1:1/piplon-test-key-0123", Model: "m", Key: key},
+		&OpenAI{URL: "http://127.0.0.1:1/piplon-test-key-0123", Model: "m", Key: key},
+	} {
+		res := p.Probe(t.Context(), loadScenario(t))
+		if len(res.Turns) != 1 {
+			t.Fatalf("got %+v", res.Turns)
+		}
+		msg := res.Turns[0].Error
+		for _, leak := range []string{string(key), "http://", "/piplon-test", "/v1/messages", "/chat/completions"} {
+			if strings.Contains(msg, leak) {
+				t.Errorf("%T: error %q contains %q", p, msg, leak)
+			}
+		}
+		if !strings.Contains(msg, "connection refused") {
+			t.Errorf("%T: error %q does not name the cause", p, msg)
+		}
 	}
 }
