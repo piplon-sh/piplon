@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/piplon-sh/piplon/internal/config"
@@ -58,4 +59,44 @@ func TestOpenAIRecorded(t *testing.T) {
 	_, url := newFakeServer(t, "openai", replies...)
 	o := &OpenAI{URL: url, Model: "recorded", Key: config.Secret("k")}
 	checkRecorded(t, o.Probe(t.Context(), loadScenario(t)), len(replies))
+}
+
+// TestGroqRecorded replays Groq's OpenAI-compatible answers through the
+// openai adapter.
+func TestGroqRecorded(t *testing.T) {
+	replies := recordedReplies(t, "groq")
+	_, url := newFakeServer(t, "groq", replies...)
+	o := &OpenAI{URL: url, Model: "recorded", Key: config.Secret("k")}
+	checkRecorded(t, o.Probe(t.Context(), loadScenario(t)), len(replies))
+}
+
+// TestGroqRecordedErrors replays real error answers: a model that does not
+// exist, which piplon judges gone, and a wrong key. Each case is skipped
+// until it is recorded.
+func TestGroqRecordedErrors(t *testing.T) {
+	for _, tt := range []struct {
+		file   string
+		status int
+	}{
+		{"model_not_found_404.json", 404},
+		{"invalid_key_401.json", 401},
+	} {
+		t.Run(tt.file, func(t *testing.T) {
+			if _, err := os.Stat(filepath.Join("testdata", "groq", tt.file)); err != nil {
+				t.Skipf("not recorded; run: go run ./tools/record --format groq ... --save-error %s", tt.file)
+			}
+			_, url := newFakeServer(t, "groq", reply{status: tt.status, fixture: tt.file})
+			o := &OpenAI{URL: url, Model: "recorded", Key: config.Secret("gsk_recorded_key")}
+			res := o.Probe(t.Context(), loadScenario(t))
+			if len(res.Turns) != 1 {
+				t.Fatalf("got %d turns, want the conversation to stop at turn 1", len(res.Turns))
+			}
+			turn := res.Turns[0]
+			want := "http " + strconv.Itoa(tt.status) + ": "
+			if turn.HTTPStatus != tt.status || turn.ProviderError == "" || !strings.HasPrefix(turn.Error, want) || turn.ExpectOK {
+				t.Errorf("got %+v, want status %d with the provider's error named", turn, tt.status)
+			}
+			t.Logf("provider_error=%q error=%q", turn.ProviderError, turn.Error)
+		})
+	}
 }
