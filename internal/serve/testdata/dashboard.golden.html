@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
+<title>piplon</title>
+<link rel="icon" href="/assets/mark.svg?v=VERSION" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/piplon.css?v=VERSION">
+<script src="/assets/htmx.min.js?v=VERSION" defer></script>
+</head>
+<body>
+<main id="live" hx-get="/live" hx-trigger="every 10s" hx-swap="outerHTML">
+<header class="top">
+  <span class="brand"><span class="mark" aria-hidden="true"></span>piplon</span>
+  <span class="meta mono">09:10 UTC · updated 12 s ago · 0.02 of 5.00 USD today</span>
+</header>
+<section class="card banner" aria-label="Status">
+  <div class="problem">
+    <h1><span class="dot bad" aria-hidden="true"></span>b is down</h1>
+    <p>the key was rejected: check its value, its permissions and the account&#39;s billing · <span class="mono">since 08:46 UTC</span></p>
+  </div>
+</section>
+<section class="card" aria-labelledby="targets">
+  <h2 id="targets" class="label">Targets</h2>
+  <div class="scroll">
+  <table class="targets">
+    <thead><tr><th>Target</th><th>State</th><th class="num">TTFT p50</th><th class="num">Err 1h</th><th>Cache</th><th class="num">Last</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">a</td><td class="mono"><span class="dot ok" aria-hidden="true"></span>ok</td><td class="num mono">400 ms</td><td class="num mono">0.0 %</td><td class="mono">hit</td><td class="num mono">12 s ago</td></tr>
+      <tr><td class="mono">b</td><td class="mono"><span class="dot bad" aria-hidden="true"></span>down</td><td class="num mono">-</td><td class="num mono">100.0 %</td><td class="mono">-</td><td class="num mono">1 m ago</td></tr>
+      <tr><td class="mono">c</td><td class="mono"><span class="dot pending" aria-hidden="true"></span>…</td><td class="num mono">-</td><td class="num mono">-</td><td class="mono">-</td><td class="num mono">-</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+<section class="card" aria-labelledby="incidents">
+  <h2 id="incidents" class="label">Incidents · 7 days</h2>
+  <div class="scroll">
+  <table class="incidents">
+    <thead><tr><th>When</th><th>Target</th><th>What we measured</th><th class="num">Duration</th><th>State</th></tr></thead>
+    <tbody>
+      <tr><td class="mono"><span class="ref">#4</span> 2026-11-03 08:48 UTC</td><td class="mono">b</td><td>the key was rejected<div class="detail mono">turn 1: http 401: invalid x-api-key</div></td><td class="num mono">22 min · ongoing</td><td class="mono"><span class="dot bad" aria-hidden="true"></span>down</td></tr>
+      <tr><td class="mono"><span class="ref">#3</span> 2026-11-03 06:00 UTC</td><td class="mono">old</td><td>the key was rejected</td><td class="num mono">1 h 00 min</td><td class="mono"><span class="dot muted" aria-hidden="true"></span>closed</td></tr>
+      <tr><td class="mono"><span class="ref">#2</span> 2026-11-02 07:00 UTC</td><td class="mono">a</td><td>the provider is overloaded<div class="detail mono">turn 2: http 529: overloaded_error: Overloaded</div></td><td class="num mono">14 min</td><td class="mono"><span class="dot ok" aria-hidden="true"></span>resolved</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+</main>
+</body>
+</html>

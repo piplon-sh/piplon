@@ -143,20 +143,30 @@ func queue(ctx context.Context, tx *sql.Tx, event string, at time.Time, inc Inci
 
 // OpenIncidents returns the incidents not closed yet, oldest first.
 func (db *DB) OpenIncidents(ctx context.Context) ([]Incident, error) {
-	rows, err := db.sql.QueryContext(ctx, `SELECT id, target, scenario, state, cause, detail, opened_ms, updated_ms
-		FROM incidents WHERE closed_ms IS NULL ORDER BY opened_ms, id`)
+	return db.incidents(ctx, "WHERE closed_ms IS NULL ORDER BY opened_ms, id")
+}
+
+// Incidents returns the incidents open at since or after it: still open,
+// opened since, or closed since. Newest first.
+func (db *DB) Incidents(ctx context.Context, since time.Time) ([]Incident, error) {
+	return db.incidents(ctx, "WHERE closed_ms IS NULL OR closed_ms >= ? ORDER BY opened_ms DESC, id DESC", since.UnixMilli())
+}
+
+const selectIncidents = `SELECT id, target, scenario, state, cause, detail, opened_ms, updated_ms,
+	closed_ms, close_cause, resolved FROM incidents `
+
+func (db *DB) incidents(ctx context.Context, where string, args ...any) ([]Incident, error) {
+	rows, err := db.sql.QueryContext(ctx, selectIncidents+where, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query incidents: %w", err)
 	}
 	defer func() { _ = rows.Close() }() // errors surface through rows.Err
 	var out []Incident
 	for rows.Next() {
-		var inc Incident
-		var opened, updated int64
-		if err := rows.Scan(&inc.ID, &inc.Target, &inc.Scenario, &inc.State, &inc.Cause, &inc.Detail, &opened, &updated); err != nil {
+		inc, err := scanIncident(rows)
+		if err != nil {
 			return nil, fmt.Errorf("query incidents: %w", err)
 		}
-		inc.Opened, inc.Updated = time.UnixMilli(opened).UTC(), time.UnixMilli(updated).UTC()
 		out = append(out, inc)
 	}
 	if err := rows.Err(); err != nil {
@@ -165,17 +175,23 @@ func (db *DB) OpenIncidents(ctx context.Context) ([]Incident, error) {
 	return out, nil
 }
 
-// incident reads one incident whatever its state, for tests.
-func (db *DB) incident(ctx context.Context, id int64) (Incident, error) {
+// scanner is a *sql.Row or *sql.Rows.
+type scanner interface{ Scan(dest ...any) error }
+
+func scanIncident(row scanner) (Incident, error) {
 	var inc Incident
 	var opened, updated int64
 	var closed sql.NullInt64
-	err := db.sql.QueryRowContext(ctx, `SELECT id, target, scenario, state, cause, detail, opened_ms, updated_ms,
-		closed_ms, close_cause, resolved FROM incidents WHERE id = ?`, id).Scan(&inc.ID, &inc.Target, &inc.Scenario,
-		&inc.State, &inc.Cause, &inc.Detail, &opened, &updated, &closed, &inc.CloseCause, &inc.Resolved)
+	err := row.Scan(&inc.ID, &inc.Target, &inc.Scenario, &inc.State, &inc.Cause, &inc.Detail, &opened, &updated,
+		&closed, &inc.CloseCause, &inc.Resolved)
 	inc.Opened, inc.Updated = time.UnixMilli(opened).UTC(), time.UnixMilli(updated).UTC()
 	if closed.Valid {
 		inc.Closed = time.UnixMilli(closed.Int64).UTC()
 	}
 	return inc, err
+}
+
+// incident reads one incident whatever its state, for tests.
+func (db *DB) incident(ctx context.Context, id int64) (Incident, error) {
+	return scanIncident(db.sql.QueryRowContext(ctx, selectIncidents+"WHERE id = ?", id))
 }
