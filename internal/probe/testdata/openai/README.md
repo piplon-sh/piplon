@@ -16,6 +16,7 @@ next to them in `recorded/`, see below.
 | `content_filter.sse` | the answer stops with `finish_reason: content_filter`, no category |
 | `content_filter_categories.sse` | the same after partial text, with Azure-style `content_filter_results` |
 | `stream_cut.sse` | a stream that ends without `data: [DONE]` |
+| `reasoning_length.sse` | **recorded**, not synthetic: Groq `openai/gpt-oss-20b` spending all 20 output tokens on `delta.reasoning`, then `finish_reason: length` with `completion_tokens_details.reasoning_tokens: 18` and no content. Ids scrubbed |
 | `rate_limited_429.json` | the error body returned with HTTP 429 |
 | `invalid_key_401.json` | the error body returned with HTTP 401, which quotes a masked key with its last characters |
 | `request_turn1.golden.json` | the exact request body of turn 1 |

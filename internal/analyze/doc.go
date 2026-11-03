@@ -18,8 +18,9 @@
 // Classify judges one probe into a Verdict: a State, a detail naming the
 // failing turn or the figure behind a learned state, and the cache result
 // (hit, miss or -). Failures need no baseline and rank gone (404, model not
-// found), down (turn 1 got no answer), errors (a later turn failed, or any
-// answer missed its expectation), then refused (the model declined: its own
+// found), down (turn 1 got no answer), errors (a later turn failed, any
+// answer missed its expectation, or a reasoning model ran out of output tokens
+// before answering, which is an answer, so never down), then refused (the model declined: its own
 // state, neither errors nor down). A probe with no failure is slow when its
 // TTFT exceeds both the usual p95 and 1.5 times the usual p50, else
 // cache_miss when it missed the cache on a target that usually read it in at
@@ -30,8 +31,9 @@
 // Every non-ok Verdict carries a probable cause, one sentence an operator can
 // act on: a rejected key (401, 403), a rate limit (429), an overloaded
 // provider (529), a server error, a timeout, a cut stream, no HTTP answer
-// (DNS, TLS, network), a model not found, a refusal with its category, or a
-// slower than usual or no longer cached path.
+// (DNS, TLS, network), a model not found, a refusal with its category, a
+// reasoning model out of output tokens (set reasoning_effort or
+// max_output_tokens), or a slower than usual or no longer cached path.
 //
 // Status applies hysteresis. The first probe's verdict sets State at once, so
 // a bad key shows as down after one probe; after that, State changes only

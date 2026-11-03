@@ -42,6 +42,12 @@ type Target struct {
 	Interval    time.Duration `yaml:"interval"` // inherited from Config.Interval when unset
 	CompareWith string        `yaml:"compare_with"`
 	Price       *Price        `yaml:"price"` // never nil after Parse
+	// ReasoningEffort is sent as reasoning_effort, openai format only, so a
+	// reasoning model answers within its output tokens. Empty sends none.
+	ReasoningEffort string `yaml:"reasoning_effort"`
+	// MaxOutputTokens replaces the scenario's output limit for this target;
+	// 0 keeps it. A reasoning model spends its reasoning in it too.
+	MaxOutputTokens int `yaml:"max_output_tokens"`
 }
 
 // Price is what a target charges, in USD per million tokens. InputTokens are

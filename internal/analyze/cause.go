@@ -23,6 +23,8 @@ func cause(s State, t probe.Turn) string {
 			return "the model declined the scenario (category " + category + ")"
 		}
 		return "the model declined the scenario"
+	case t.ReasoningLimit():
+		return "the model spent its output tokens reasoning: set reasoning_effort or max_output_tokens for this target"
 	case t.Error == "":
 		return "the answer did not have the expected shape"
 	case t.Error == "timeout":

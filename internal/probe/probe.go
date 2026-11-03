@@ -113,10 +113,19 @@ func priced(p config.Price, in, out, cacheRead, cacheWrite int) float64 {
 }
 
 // estimate is the worst-case cost of one probe of s: every turn at full
-// measured input size, uncached, with maximum output.
-func estimate(p config.Price, s *scenario.Scenario) float64 {
+// measured input size, uncached, with maximum output, maxOut when not 0.
+func estimate(p config.Price, s *scenario.Scenario, maxOut int) float64 {
 	turns := float64(len(s.Turns))
 	in := turns * float64(s.Limits.InputTokens)
-	out := turns * float64(s.Limits.MaxOutputTokens)
+	out := turns * float64(maxOutput(maxOut, s))
 	return (in*p.Input + out*p.Output) / perMillion
+}
+
+// maxOutput is a target's output limit: override when not 0, else the
+// scenario's.
+func maxOutput(override int, s *scenario.Scenario) int {
+	if override > 0 {
+		return override
+	}
+	return s.Limits.MaxOutputTokens
 }

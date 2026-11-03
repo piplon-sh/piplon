@@ -12,9 +12,10 @@ import (
 func ForTarget(t config.Target) (Prober, error) {
 	switch t.Format {
 	case "anthropic":
-		return &Anthropic{URL: t.URL, Model: t.Model, Key: t.Key}, nil
+		return &Anthropic{URL: t.URL, Model: t.Model, Key: t.Key, MaxOutputTokens: t.MaxOutputTokens}, nil
 	case "openai", "ollama": // Ollama serves the OpenAI-compatible API
-		return &OpenAI{URL: t.URL, Model: t.Model, Key: t.Key}, nil
+		return &OpenAI{URL: t.URL, Model: t.Model, Key: t.Key, MaxOutputTokens: t.MaxOutputTokens,
+			ReasoningEffort: t.ReasoningEffort}, nil
 	default:
 		return nil, fmt.Errorf("target %s: %s: %w", t.Name, t.Format, ErrUnsupported)
 	}

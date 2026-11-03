@@ -2,6 +2,7 @@ package probe
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -131,6 +132,11 @@ func TestOpenAIFailures(t *testing.T) {
 			turns:   1, status: 200, errContains: "refused: self_harm,violence",
 		},
 		{
+			name:    "a reasoning model spends its output limit reasoning (recorded, Groq gpt-oss-20b)",
+			replies: []reply{{status: 200, fixture: "reasoning_length.sse"}},
+			turns:   1, status: 200, errContains: "output limit reached while reasoning: 18 of 20 output tokens",
+		},
+		{
 			name:    "stream ends without [DONE]",
 			replies: []reply{{status: 200, fixture: "stream_cut.sse"}},
 			turns:   1, status: 200, errContains: "stream ended before [DONE]", cut: true,
@@ -174,5 +180,32 @@ func TestOpenAITimeout(t *testing.T) {
 	res := o.Probe(ctx, loadScenario(t))
 	if len(res.Turns) != 1 || res.Turns[0].Error != "timeout" || res.Turns[0].HTTPStatus != 0 {
 		t.Fatalf("want one timed-out turn with no status, got %+v", res.Turns)
+	}
+}
+
+func TestOpenAIReasoningIsNotTheFirstToken(t *testing.T) {
+	_, o := newFakeOpenAI(t, openaiFixtureKey, reply{status: 200, fixture: "reasoning_length.sse"})
+	turn := o.Probe(t.Context(), loadScenario(t)).Turns[0]
+	if turn.TTFT != 0 || !turn.ReasoningLimit() || turn.OutputTokens != 20 || turn.InputTokens != 1177 {
+		t.Errorf("got %+v, want no TTFT (no answer came), the limit named, usage read", turn)
+	}
+}
+
+func TestOpenAITargetOptionsReachTheRequest(t *testing.T) {
+	f, o := newFakeOpenAI(t, openaiFixtureKey, openaiOK()...)
+	o.MaxOutputTokens, o.ReasoningEffort = 200, "low"
+	o.Probe(t.Context(), loadScenario(t))
+	var body map[string]any
+	if err := json.Unmarshal(f.bodies[0], &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["max_tokens"] != 200.0 || body["reasoning_effort"] != "low" {
+		t.Errorf("got max_tokens=%v reasoning_effort=%v, want 200 and low", body["max_tokens"], body["reasoning_effort"])
+	}
+	// Without them the request is the golden one: no reasoning_effort at all.
+	f, o = newFakeOpenAI(t, openaiFixtureKey, openaiOK()...)
+	o.Probe(t.Context(), loadScenario(t))
+	if strings.Contains(string(f.bodies[0]), "reasoning_effort") {
+		t.Errorf("reasoning_effort sent without being set: %s", f.bodies[0])
 	}
 }
