@@ -20,11 +20,17 @@ type Notification struct {
 	LastError string
 }
 
-// Due returns up to limit undelivered notifications whose next attempt is at
-// or before now, oldest first.
+// Due returns up to limit pending notifications whose next attempt is at or
+// before now, oldest first. A notification is pending until it is delivered
+// or abandoned, and is never due while an earlier one of the same incident
+// and channel is pending, so a channel gets an incident's events in order.
 func (db *DB) Due(ctx context.Context, now time.Time, limit int) ([]Notification, error) {
-	rows, err := db.sql.QueryContext(ctx, `SELECT id, event, at_ms, channel, incident, attempts, next_ms, last_error
-		FROM notifications WHERE delivered_ms IS NULL AND next_ms <= ? ORDER BY id LIMIT ?`, now.UnixMilli(), limit)
+	rows, err := db.sql.QueryContext(ctx, `SELECT n.id, n.event, n.at_ms, n.channel, n.incident, n.attempts, n.next_ms, n.last_error
+		FROM notifications n
+		WHERE n.delivered_ms IS NULL AND n.abandoned_ms IS NULL AND n.next_ms <= ?
+		AND NOT EXISTS (SELECT 1 FROM notifications e WHERE e.incident_id = n.incident_id AND e.channel = n.channel
+			AND e.id < n.id AND e.delivered_ms IS NULL AND e.abandoned_ms IS NULL)
+		ORDER BY n.id LIMIT ?`, now.UnixMilli(), limit)
 	if err != nil {
 		return nil, fmt.Errorf("query notifications: %w", err)
 	}
@@ -53,6 +59,16 @@ func (db *DB) Due(ctx context.Context, now time.Time, limit int) ([]Notification
 func (db *DB) Delivered(ctx context.Context, id int64, at time.Time) error {
 	if _, err := db.sql.ExecContext(ctx, `UPDATE notifications SET delivered_ms = ?, attempts = attempts + 1
 		WHERE id = ?`, at.UnixMilli(), id); err != nil {
+		return fmt.Errorf("notification %d: %w", id, err)
+	}
+	return nil
+}
+
+// Abandon gives up on a pending notification at at, keeping why. It is
+// never due again, and the next one of its incident and channel can go.
+func (db *DB) Abandon(ctx context.Context, id int64, at time.Time, reason string) error {
+	if _, err := db.sql.ExecContext(ctx, `UPDATE notifications SET abandoned_ms = ?, last_error = ?
+		WHERE id = ? AND delivered_ms IS NULL`, at.UnixMilli(), reason, id); err != nil {
 		return fmt.Errorf("notification %d: %w", id, err)
 	}
 	return nil

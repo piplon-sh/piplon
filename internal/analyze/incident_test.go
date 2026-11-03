@@ -78,9 +78,19 @@ func TestIncidentLifecycle(t *testing.T) {
 	if open, _ := db.OpenIncidents(t.Context()); len(open) != 0 {
 		t.Errorf("still open in the store: %+v", open)
 	}
-	due, _ := db.Due(t.Context(), monday.Add(time.Hour), 10)
-	if len(due) != 3 || due[0].Event != store.EventOpened || due[1].Event != store.EventUpdated || due[2].Event != store.EventClosed {
-		t.Errorf("outbox: got %+v, want opened, updated, closed for slack", due)
+	// The outbox gives an incident's events one at a time, each once the
+	// previous one is delivered.
+	var got []string
+	for {
+		due, _ := db.Due(t.Context(), monday.Add(time.Hour), 10)
+		if len(due) == 0 {
+			break
+		}
+		got = append(got, due[0].Event)
+		_ = db.Delivered(t.Context(), due[0].ID, monday)
+	}
+	if len(got) != 3 || got[0] != store.EventOpened || got[1] != store.EventUpdated || got[2] != store.EventClosed {
+		t.Errorf("outbox: got %v, want opened, updated, closed for slack", got)
 	}
 }
 
