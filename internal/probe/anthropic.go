@@ -20,6 +20,8 @@ type Anthropic struct {
 	Model  string
 	Key    config.Secret
 	Client *http.Client // nil uses a client bounded only by the probe context
+	// MaxOutputTokens replaces the scenario's output limit when not 0.
+	MaxOutputTokens int
 }
 
 type anthropicRequest struct {
@@ -113,7 +115,7 @@ func (a *Anthropic) request(s *scenario.Scenario, msgs []anthropicMessage) anthr
 	}
 	return anthropicRequest{
 		Model:       a.Model,
-		MaxTokens:   s.Limits.MaxOutputTokens,
+		MaxTokens:   maxOutput(a.MaxOutputTokens, s),
 		Temperature: s.Limits.Temperature,
 		Stream:      true,
 		System:      []anthropicText{{Type: "text", Text: s.SystemPrompt(), CacheControl: ephemeral}},

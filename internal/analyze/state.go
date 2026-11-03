@@ -82,6 +82,8 @@ func failure(i int, t probe.Turn) (State, string) {
 		return Gone, fmt.Sprintf("turn %d: %s", i+1, t.Error)
 	case t.Refused():
 		return Refused, fmt.Sprintf("turn %d: %s", i+1, t.Error)
+	case t.ReasoningLimit(): // an answer came, it was all reasoning: not down
+		return Errors, fmt.Sprintf("turn %d: %s", i+1, t.Error)
 	case t.Error != "" && i == 0:
 		return Down, fmt.Sprintf("turn 1: %s", t.Error)
 	case t.Error != "":

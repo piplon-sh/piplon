@@ -30,6 +30,11 @@
 // Each target may set price (USD per million tokens: input, output,
 // cache_read, cache_write, all >= 0). Without a price block a target gets
 // DefaultPrice, deliberately high; inside a block, omitted fields are 0.
+// A target may set max_output_tokens (1..4096) to replace the scenario's
+// output limit, and, with format openai, reasoning_effort (none, minimal,
+// low, medium, high), sent as is: a reasoning model spends its reasoning in
+// its output tokens and would otherwise have none left to answer with.
+//
 // An ollama target without a url probes OllamaURL (a local Ollama), and
 // without a price block it is free, so a local model never hits the budget.
 package config

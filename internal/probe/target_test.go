@@ -14,9 +14,13 @@ func TestForTarget(t *testing.T) {
 	if got, ok := a.(*Anthropic); err != nil || !ok || got.URL != "https://a" || got.Model != "m" || got.Key != "k" {
 		t.Errorf("anthropic: got %#v, %v", a, err)
 	}
-	o, err := ForTarget(config.Target{Name: "o", Format: "openai", URL: "https://o/v1", Model: "m"})
-	if got, ok := o.(*OpenAI); err != nil || !ok || got.URL != "https://o/v1" {
+	o, err := ForTarget(config.Target{Name: "o", Format: "openai", URL: "https://o/v1", Model: "m", ReasoningEffort: "low", MaxOutputTokens: 200})
+	if got, ok := o.(*OpenAI); err != nil || !ok || got.URL != "https://o/v1" || got.ReasoningEffort != "low" || got.MaxOutputTokens != 200 {
 		t.Errorf("openai: got %#v, %v", o, err)
+	}
+	a, _ = ForTarget(config.Target{Name: "a", Format: "anthropic", URL: "https://a", Model: "m", Key: "k", MaxOutputTokens: 300})
+	if got := a.(*Anthropic); got.MaxOutputTokens != 300 {
+		t.Errorf("anthropic: max output %d, want 300", got.MaxOutputTokens)
 	}
 	l, err := ForTarget(config.Target{Name: "l", Format: "ollama", URL: config.OllamaURL, Model: "llama3.2"})
 	if got, ok := l.(*OpenAI); err != nil || !ok || got.URL != config.OllamaURL || got.Key != "" {

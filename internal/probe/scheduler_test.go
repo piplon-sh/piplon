@@ -224,7 +224,7 @@ func TestBudgetStopsProbing(t *testing.T) {
 		price := config.Price{Input: 1, Output: 1}
 		// Room for exactly two estimated probes.
 		s := newScheduler(t, r, Job{Target: "a", Interval: time.Minute, Price: price, Prober: &fakeProber{took: time.Second, tokens: 1e6}})
-		s.Budget = NewBudget(2*estimate(price, sc) + 1e-9)
+		s.Budget = NewBudget(2*estimate(price, sc, 0) + 1e-9)
 		runFor(t, s, 5*time.Minute-time.Second)
 		if got := r.count(""); got != 1 {
 			t.Errorf("probes run: got %d, want 1 (the first actual cost, 1 USD, exceeds two estimates)", got)
@@ -266,14 +266,14 @@ func TestProbeWithoutUsageIsChargedItsEstimate(t *testing.T) {
 		// The prober reports no tokens at all, like a server that ignores
 		// stream_options.include_usage. Room for two estimates.
 		s := newScheduler(t, r, Job{Target: "a", Interval: time.Minute, Price: price, Prober: &fakeProber{took: time.Second}})
-		s.Budget = NewBudget(2.5 * estimate(price, sc))
+		s.Budget = NewBudget(2.5 * estimate(price, sc, 0))
 		runFor(t, s, 5*time.Minute-time.Second)
 		if got := r.count(""); got != 2 {
 			t.Errorf("probes run: got %d, want 2 (each charged its estimate)", got)
 		}
 		for _, o := range r.outcomes() {
-			if o.Skipped == "" && !near(o.CostUSD, estimate(price, sc)) {
-				t.Errorf("cost: got %v, want the estimate %v", o.CostUSD, estimate(price, sc))
+			if o.Skipped == "" && !near(o.CostUSD, estimate(price, sc, 0)) {
+				t.Errorf("cost: got %v, want the estimate %v", o.CostUSD, estimate(price, sc, 0))
 			}
 		}
 	})

@@ -320,6 +320,30 @@ func TestParseErrors(t *testing.T) {
 			wantMsg: "notify: slack: environment variable SLACK_WEBHOOK is not set",
 		},
 		{
+			name:    "reasoning_effort on a format that does not send it",
+			yaml:    target(okTarget + "    reasoning_effort: low\n"),
+			wantErr: ErrInvalid,
+			wantMsg: "reasoning_effort: is only sent by format openai",
+		},
+		{
+			name:    "reasoning_effort value unknown",
+			yaml:    target("    format: openai\n    url: https://o/v1\n    model: m\n    reasoning_effort: lowest\n"),
+			wantErr: ErrInvalid,
+			wantMsg: `reasoning_effort: "lowest" is not one of none, minimal, low, medium, high`,
+		},
+		{
+			name:    "max_output_tokens above the cap",
+			yaml:    target(okTarget + "    max_output_tokens: 5000\n"),
+			wantErr: ErrInvalid,
+			wantMsg: "max_output_tokens: 5000 is outside 1..4096",
+		},
+		{
+			name:    "max_output_tokens negative",
+			yaml:    target(okTarget + "    max_output_tokens: -1\n"),
+			wantErr: ErrInvalid,
+			wantMsg: "max_output_tokens: -1 is outside 1..4096",
+		},
+		{
 			name:    "serve listen without a port",
 			yaml:    target(okTarget) + "serve:\n  listen: localhost\n",
 			wantErr: ErrInvalid,
@@ -457,5 +481,20 @@ func TestParseTargetsStillValidatesTheChosenOnesAndTheRest(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), tt.want) {
 			t.Errorf("%s: got %v, want %q", tt.name, err, tt.want)
 		}
+	}
+}
+
+func TestReasoningModelOptions(t *testing.T) {
+	cfg, err := Parse([]byte(target("    format: openai\n    url: https://api.groq.com/openai/v1\n    model: openai/gpt-oss-20b\n"+
+		"    reasoning_effort: low\n    max_output_tokens: 200\n")), env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tg := cfg.Targets[0]; tg.ReasoningEffort != "low" || tg.MaxOutputTokens != 200 {
+		t.Errorf("got %+v", tg)
+	}
+	cfg, err = Parse([]byte(target(okTarget+"    max_output_tokens: 300\n")), env(nil))
+	if err != nil || cfg.Targets[0].MaxOutputTokens != 300 {
+		t.Errorf("anthropic max_output_tokens: %+v, %v", cfg, err)
 	}
 }

@@ -13,10 +13,11 @@ import (
 
 // Job is one target to probe on its own interval.
 type Job struct {
-	Target   string
-	Interval time.Duration
-	Price    config.Price
-	Prober   Prober
+	Target          string
+	Interval        time.Duration
+	Price           config.Price
+	MaxOutputTokens int // the target's output limit when not 0, for the cost estimate
+	Prober          Prober
 }
 
 // Scheduler probes every Job until its context is cancelled. See the package
@@ -133,7 +134,7 @@ func (s *Scheduler) once(ctx context.Context, j Job, tick time.Time, slots chan 
 		Scenario: s.Scenario.ID(),
 		Start:    tick,
 	}
-	reserved := estimate(j.Price, s.Scenario)
+	reserved := estimate(j.Price, s.Scenario, j.MaxOutputTokens)
 	if !s.Budget.Reserve(reserved) {
 		o.ProbeID, o.Skipped = "", SkipBudget
 		s.Report(o)

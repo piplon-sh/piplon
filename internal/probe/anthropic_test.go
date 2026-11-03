@@ -189,3 +189,12 @@ func TestAnthropicNeverLeaksTheKey(t *testing.T) {
 		}
 	}
 }
+
+func TestAnthropicMaxOutputTokensReachesTheRequest(t *testing.T) {
+	f, a := newFakeAPI(t, okReplies()...)
+	a.MaxOutputTokens = 200
+	a.Probe(t.Context(), loadScenario(t))
+	if !strings.Contains(string(f.bodies[0]), `"max_tokens":200`) {
+		t.Errorf("request: %s", f.bodies[0])
+	}
+}

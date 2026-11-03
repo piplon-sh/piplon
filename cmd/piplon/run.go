@@ -152,7 +152,7 @@ func buildJobs(targets []config.Target) ([]probe.Job, error) {
 		if err != nil {
 			return nil, err
 		}
-		jobs[i] = probe.Job{Target: t.Name, Interval: t.Interval, Price: *t.Price, Prober: p}
+		jobs[i] = probe.Job{Target: t.Name, Interval: t.Interval, Price: *t.Price, MaxOutputTokens: t.MaxOutputTokens, Prober: p}
 	}
 	return jobs, nil
 }

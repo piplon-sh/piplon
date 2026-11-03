@@ -33,6 +33,15 @@ const errToolCall = "tool call instead of text"
 // It is not an empty reply: the model did answer, with a refusal.
 const errRefused = "refused"
 
+// errReasoningLimit starts the error of a turn whose output limit ran out
+// while the model was still reasoning, before any answer.
+const errReasoningLimit = "output limit reached while reasoning"
+
+// ReasoningLimit reports whether the turn's output limit ran out while the
+// model was still reasoning: the target needs a lower reasoning effort or a
+// higher output limit, the provider is not failing.
+func (t Turn) ReasoningLimit() bool { return strings.HasPrefix(t.Error, errReasoningLimit) }
+
 // Refused reports whether the model declined to answer this turn.
 func (t Turn) Refused() bool {
 	return t.Error == errRefused || strings.HasPrefix(t.Error, errRefused+": ")

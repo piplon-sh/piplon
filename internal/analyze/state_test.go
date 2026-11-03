@@ -45,6 +45,8 @@ func TestClassify(t *testing.T) {
 		{"down", outcome(probe.Turn{Error: "http 401: authentication_error: invalid x-api-key", HTTPStatus: 401}), usual, true, Down, "-", "turn 1: http 401: authentication_error: invalid x-api-key"},
 		{"errors on turn 2", outcome(turn(1000*ms, 0), probe.Turn{Error: "http 529: overloaded_error: Overloaded", HTTPStatus: 529}), usual, true, Errors, "-", "turn 2: http 529: overloaded_error: Overloaded"},
 		{"wrong answer", outcome(turn(1000*ms, 0), probe.Turn{TTFT: 900 * ms, CacheReadTokens: 4000}, turn(950*ms, 4000)), usual, true, Errors, "hit", "turn 2: answer missed its expectation"},
+		{"a reasoning model out of output tokens is errors, not down", outcome(probe.Turn{Error: "output limit reached while reasoning: 18 of 20 output tokens", HTTPStatus: 200}),
+			usual, true, Errors, "-", "turn 1: output limit reached while reasoning: 18 of 20 output tokens"},
 		{"a refusal after a wrong answer is still errors", outcome(probe.Turn{TTFT: 900 * ms}, probe.Turn{Error: "refused"}), usual, true, Errors, "-", "turn 1: answer missed its expectation"},
 	}
 	for _, tt := range tests {

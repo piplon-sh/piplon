@@ -36,6 +36,17 @@
 // the key is empty, and treats a stream without data: [DONE] as cut. A
 // finish_reason of "content_filter" is recorded as "refused", followed by the
 // filtered categories when the server lists them in content_filter_results.
+// Reasoning deltas (reasoning, reasoning_content) are not the first token: an
+// application waits for the answer. A stream that stops on finish_reason
+// "length" having only reasoned is recorded as "output limit reached while
+// reasoning: N of M output tokens", from completion_tokens_details, so a
+// reasoning model short of output tokens is not taken for an empty reply.
+// Turn.ReasoningLimit reports it.
+//
+// Both adapters take MaxOutputTokens, which replaces the scenario's output
+// limit, and OpenAI takes ReasoningEffort, sent as reasoning_effort; zero
+// values send the scenario's request unchanged. The Budget estimate prices a
+// Job at its own MaxOutputTokens.
 //
 // ForTarget returns the adapter for a configured target's format; formats the
 // config accepts but no adapter implements yet (bedrock, google) wrap

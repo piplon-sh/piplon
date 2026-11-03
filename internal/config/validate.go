@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ const (
 	minTimeout     = time.Second
 	maxTimeout     = 5 * time.Minute
 	maxConcurrency = 64
+	maxOutput      = 4096 // max_output_tokens; the budget estimate prices every turn at it
 	minRetention   = 24 * time.Hour
 )
 
@@ -28,6 +30,10 @@ var namePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,62}$`)
 type formatRule struct {
 	needsURL, needsKey, needsRegion, noKey bool
 }
+
+// reasoningEfforts are the reasoning_effort values OpenAI-compatible APIs
+// accept; which ones a model takes is the provider's to say.
+var reasoningEfforts = []string{"none", "minimal", "low", "medium", "high"}
 
 var formatNames = []string{"anthropic", "openai", "bedrock", "google", "ollama"}
 
@@ -186,6 +192,17 @@ func checkTarget(t Target, cfg *Config, names map[string]int) []problem {
 		add("compare_with", invalid("cannot compare a target with itself"))
 	case !ok:
 		add("compare_with", invalid("no target named %q", t.CompareWith))
+	}
+
+	if t.MaxOutputTokens < 0 || t.MaxOutputTokens > maxOutput {
+		add("max_output_tokens", invalid("%d is outside 1..%d", t.MaxOutputTokens, maxOutput))
+	}
+	switch {
+	case t.ReasoningEffort == "":
+	case t.Format != "openai":
+		add("reasoning_effort", invalid("is only sent by format openai"))
+	case !slices.Contains(reasoningEfforts, t.ReasoningEffort):
+		add("reasoning_effort", invalid("%q is not one of %s", t.ReasoningEffort, strings.Join(reasoningEfforts, ", ")))
 	}
 
 	if t.Format == "" {

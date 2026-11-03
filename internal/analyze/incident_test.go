@@ -146,6 +146,8 @@ func TestCauses(t *testing.T) {
 		{Refused, probe.Turn{Error: "refused: bio"}, "the model declined the scenario (category bio)"},
 		{Refused, probe.Turn{Error: "refused"}, "the model declined the scenario"},
 		{Errors, probe.Turn{}, "the answer did not have the expected shape"},
+		{Errors, probe.Turn{Error: "output limit reached while reasoning: 18 of 20 output tokens", HTTPStatus: 200},
+			"the model spent its output tokens reasoning: set reasoning_effort or max_output_tokens for this target"},
 	} {
 		if got := cause(tt.s, tt.t); got != tt.want {
 			t.Errorf("%s %q: got %q, want %q", tt.s, tt.t.Error, got, tt.want)

@@ -30,8 +30,13 @@ func TestEstimateIsPricedAsUncached(t *testing.T) {
 	p := config.Price{Input: 1, Output: 10}
 	turns := float64(len(s.Turns))
 	want := (turns*float64(s.Limits.InputTokens)*1 + turns*float64(s.Limits.MaxOutputTokens)*10) / 1e6
-	if got := estimate(p, s); !near(got, want) {
+	if got := estimate(p, s, 0); !near(got, want) {
 		t.Errorf("estimate: got %v, want %v", got, want)
+	}
+	// A target's own output limit is what the estimate prices.
+	want += turns * float64(200-s.Limits.MaxOutputTokens) * 10 / 1e6
+	if got := estimate(p, s, 200); !near(got, want) {
+		t.Errorf("estimate at 200 output tokens: got %v, want %v", got, want)
 	}
 }
 

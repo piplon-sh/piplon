@@ -3,6 +3,7 @@ package probe
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -21,16 +22,21 @@ type OpenAI struct {
 	Model  string
 	Key    config.Secret // empty sends no Authorization header
 	Client *http.Client  // nil uses a client bounded only by the probe context
+	// MaxOutputTokens replaces the scenario's output limit when not 0.
+	MaxOutputTokens int
+	// ReasoningEffort is sent as reasoning_effort when not empty.
+	ReasoningEffort string
 }
 
 type openaiRequest struct {
-	Model         string          `json:"model"`
-	Messages      []openaiMessage `json:"messages"`
-	Tools         []openaiTool    `json:"tools,omitempty"`
-	MaxTokens     int             `json:"max_tokens"`
-	Temperature   float64         `json:"temperature"`
-	Stream        bool            `json:"stream"`
-	StreamOptions streamOptions   `json:"stream_options"`
+	Model           string          `json:"model"`
+	Messages        []openaiMessage `json:"messages"`
+	Tools           []openaiTool    `json:"tools,omitempty"`
+	MaxTokens       int             `json:"max_tokens"`
+	ReasoningEffort string          `json:"reasoning_effort,omitempty"`
+	Temperature     float64         `json:"temperature"`
+	Stream          bool            `json:"stream"`
+	StreamOptions   streamOptions   `json:"stream_options"`
 }
 
 // streamOptions asks for a final usage chunk, the only place token counts
@@ -60,6 +66,10 @@ type openaiChunk struct {
 		Delta struct {
 			Content   string          `json:"content"`
 			ToolCalls json.RawMessage `json:"tool_calls"`
+			// What a reasoning model thinks before it answers: reasoning on
+			// Groq and OpenRouter, reasoning_content on vLLM and DeepSeek.
+			Reasoning        string `json:"reasoning"`
+			ReasoningContent string `json:"reasoning_content"`
 		} `json:"delta"`
 		FinishReason string `json:"finish_reason"`
 		// Some servers name what a content filter caught (Azure OpenAI).
@@ -73,6 +83,9 @@ type openaiChunk struct {
 		PromptTokensDetails struct {
 			CachedTokens int `json:"cached_tokens"`
 		} `json:"prompt_tokens_details"`
+		CompletionTokensDetails struct {
+			ReasoningTokens int `json:"reasoning_tokens"`
+		} `json:"completion_tokens_details"`
 	} `json:"usage"`
 	Error *apiError `json:"error"`
 }
@@ -103,13 +116,14 @@ func (o *OpenAI) request(s *scenario.Scenario, msgs []openaiMessage) openaiReque
 		tools[i] = openaiTool{Type: "function", Function: openaiFunction{Name: t.Name, Description: t.Description, Parameters: t.Parameters}}
 	}
 	return openaiRequest{
-		Model:         o.Model,
-		Messages:      msgs,
-		Tools:         tools,
-		MaxTokens:     s.Limits.MaxOutputTokens,
-		Temperature:   s.Limits.Temperature,
-		Stream:        true,
-		StreamOptions: streamOptions{IncludeUsage: true},
+		Model:           o.Model,
+		Messages:        msgs,
+		Tools:           tools,
+		MaxTokens:       maxOutput(o.MaxOutputTokens, s),
+		ReasoningEffort: o.ReasoningEffort,
+		Temperature:     s.Limits.Temperature,
+		Stream:          true,
+		StreamOptions:   streamOptions{IncludeUsage: true},
 	}
 }
 
@@ -144,10 +158,14 @@ func (o *OpenAI) turn(ctx context.Context, s *scenario.Scenario, msgs []openaiMe
 
 // readOpenAIStream fills turn from the chunk stream and returns the text.
 // TTFT stops at the first chunk carrying content or a tool call, not at the
-// role-only chunk servers send first.
+// role-only chunk servers send first, nor at reasoning: the application
+// waits for the answer. A stream that stops on its output limit while still
+// reasoning, with no answer, is recorded as such, not as an empty reply.
 func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote func() time.Time, key config.Secret) string {
 	var text strings.Builder
-	var gotDelta, done, toolCall, refused bool
+	var gotDelta, done, toolCall, refused, reasoned bool
+	var finish string
+	var reasoningTokens int
 	var filtered []string
 	err := readSSE(body, func(_ string, data []byte) bool {
 		if string(data) == "[DONE]" {
@@ -172,6 +190,10 @@ func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote fun
 				turn.TTFT = time.Since(wrote())
 			}
 			text.WriteString(c.Delta.Content)
+			reasoned = reasoned || c.Delta.Reasoning != "" || c.Delta.ReasoningContent != ""
+			if c.FinishReason != "" {
+				finish = c.FinishReason
+			}
 			if c.FinishReason == "content_filter" {
 				refused = true
 				for name, r := range c.ContentFilterResults {
@@ -185,6 +207,7 @@ func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote fun
 			turn.CacheReadTokens = u.PromptTokensDetails.CachedTokens
 			turn.InputTokens = u.PromptTokens - u.PromptTokensDetails.CachedTokens
 			turn.OutputTokens = u.CompletionTokens
+			reasoningTokens = u.CompletionTokensDetails.ReasoningTokens
 		}
 		return true
 	})
@@ -199,6 +222,11 @@ func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote fun
 	case refused:
 		slices.Sort(filtered)
 		turn.Error = refusal(strings.Join(filtered, ","))
+	case text.Len() == 0 && !toolCall && finish == "length" && (reasoned || reasoningTokens > 0):
+		turn.Error = errReasoningLimit
+		if reasoningTokens > 0 {
+			turn.Error = fmt.Sprintf("%s: %d of %d output tokens", errReasoningLimit, reasoningTokens, turn.OutputTokens)
+		}
 	case text.Len() == 0 && toolCall:
 		turn.Error = errToolCall
 	case text.Len() == 0:
