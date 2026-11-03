@@ -124,7 +124,7 @@ piplon does not come with its own dashboard product. It feeds the tools you alre
 - **Prometheus**: `/metrics` endpoint, scrape it with Prometheus, VictoriaMetrics, Grafana Agent, Datadog, New Relic, anything that speaks the format
 - **OpenTelemetry**: OTLP traces and metrics to any collector
 - **JSON logs**: one line per probe, pipe them into Loki, Elastic, Splunk, CloudWatch, or `jq`
-- **Webhook**: every state change as a JSON POST, so a custom system or a workflow engine can react
+- **Webhook**: every incident opening, update and close as a JSON POST (`piplon.incident.v1`), so a custom system or a workflow engine can react; delivery is at least once, so deduplicate on its `id`
 - **SQLite**: every sample is a row in a file you own; query it with `sqlite3`, DuckDB, a notebook, or your own script
 - **Notifications**: Slack, Discord, email, PagerDuty, generic webhook
 - **Terminal and local dashboard**: `run` and `serve`, when you want to look without wiring anything

@@ -1,3 +1,39 @@
-// Package notify is not implemented yet. See docs/ENGINEERING.md for its responsibilities
-// and docs/ROADMAP.md for when it lands.
+// Package notify delivers incident events from the store's outbox to Slack
+// and webhooks.
+//
+// A Channel has a Name, used in the outbox and the logs and never secret,
+// and Sends one store.Notification. Slack posts to an incoming webhook one
+// attachment whose colour bar is the state (red for down, errors and gone,
+// orange for slow, cache_miss and refused, green back to ok, grey for a close
+// without resolution), holding Block Kit blocks: a bold title whose emoji
+// matches the bar (🔴, 🟠, 🟢, ⚪), a section for the Cause, a full-width
+// section for the Measured detail as inline code, and a grey context with the
+// incident number, the scenario and when it opened, or for a close how long it
+// lasted and from when to when. A resolution replaces Cause and Measured with
+// one line, "Was <state> for <duration> · cause: <cause>", the cause without
+// the advice after its colon, and its context
+// gives only from when to when. Text is the
+// attachment's fallback, what mobile notifications show; there is no top-level
+// text, which Slack would print above the attachment. Times are rounded to the
+// nearest minute and durations are the difference of the rounded times. &, <
+// and > are escaped. Incoming webhooks cannot thread, so every message names
+// its incident number.
+//
+// Webhook posts a "piplon.incident.v1" JSON document: the notification id, stable across retries because delivery is
+// at least once, the event, its time, Text, and the incident as the event
+// left it (closed is null while open, resolved is false for an
+// administrative close). Errors never contain the channel URL, which holds
+// its token.
+//
+// Text names the target, its state, the probable cause and what was measured.
+// A close that is a resolution says the target is back to ok and for how
+// long the incident lasted; an administrative close says the incident closed
+// without resolution and why, and never reads as resolved.
+//
+// Dispatcher drains the outbox on Run's start, on every Wake and every 5 s,
+// one round after another, since a delivery can release the next event of
+// the same incident. A failed send is retried after 30 s, doubling up to 30
+// min; an event still undelivered 24 h after it happened is abandoned and
+// logged as an error, and so is one for a channel no longer configured. A send
+// cut short by shutdown is not counted and goes out at the next start.
 package notify
