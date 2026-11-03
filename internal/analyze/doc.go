@@ -53,8 +53,9 @@
 // right after start, where the first probe already set the State. While open,
 // a confirmed change of state updates its state and cause; back to ok, it is
 // closed as resolved. Status.Event and Status.Incident report what the latest
-// probe did. A store error leaves the incident as it was and the next probe
-// tries again. Restore, at start, resumes the open incidents of configured
+// probe did. Each event is queued, in the same transaction, for the channels
+// given to New. A store error leaves the incident as it was and the next
+// probe tries again. Restore, at start, resumes the open incidents of configured
 // targets, which start in the incident's state, and closes the others as
 // "target removed from config", never resolved.
 package analyze

@@ -20,6 +20,7 @@ type Analyzer struct {
 	db        store.Store
 	scenario  string
 	cacheFrom int
+	channels  []string // notified of every incident event, through the store's outbox
 
 	mu      sync.Mutex
 	targets map[string]*target
@@ -49,9 +50,11 @@ const (
 	closeRemoved   = "target removed from config"
 )
 
-// New returns an Analyzer learning baselines of scenario from db.
-func New(db store.Store, scenario string, cacheFrom int) *Analyzer {
-	return &Analyzer{db: db, scenario: scenario, cacheFrom: cacheFrom, targets: map[string]*target{}}
+// New returns an Analyzer learning baselines of scenario from db. Every
+// incident event is queued for each of channels in the same transaction as
+// the incident change.
+func New(db store.Store, scenario string, cacheFrom int, channels []string) *Analyzer {
+	return &Analyzer{db: db, scenario: scenario, cacheFrom: cacheFrom, channels: channels, targets: map[string]*target{}}
 }
 
 // Observe applies one outcome and returns the target's status. A skipped
@@ -93,23 +96,24 @@ func (t *target) track(ctx context.Context, a *Analyzer, o probe.Outcome) error 
 	case inc == nil && st.State != OK && st.Streak >= Confirm:
 		next := store.Incident{Target: o.Target, Scenario: a.scenario, State: string(st.State),
 			Cause: st.Last.Cause, Detail: st.Last.Detail, Opened: o.Start, Updated: o.Start}
-		id, err := a.db.OpenIncident(ctx, next)
+		id, err := a.db.OpenIncident(ctx, next, a.channels)
 		if err != nil {
 			return fmt.Errorf("analyze %s: %w", o.Target, err)
 		}
 		next.ID = id
 		t.incident, st.Event = &next, Opened
 	case inc != nil && st.State == OK:
-		if err := a.db.CloseIncident(ctx, inc.ID, o.Start, closeRecovered, true); err != nil {
+		closed := *inc
+		closed.Closed, closed.CloseCause, closed.Resolved = o.Start, closeRecovered, true
+		if err := a.db.CloseIncident(ctx, closed, a.channels); err != nil {
 			return fmt.Errorf("analyze %s: %w", o.Target, err)
 		}
-		inc.Closed, inc.CloseCause, inc.Resolved = o.Start, closeRecovered, true
-		t.incident, st.Event, st.Incident = nil, Closed, *inc
+		t.incident, st.Event, st.Incident = nil, Closed, closed
 		return nil
 	case inc != nil && string(st.State) != inc.State:
 		next := *inc
 		next.State, next.Cause, next.Detail, next.Updated = string(st.State), st.Last.Cause, st.Last.Detail, o.Start
-		if err := a.db.UpdateIncident(ctx, next); err != nil {
+		if err := a.db.UpdateIncident(ctx, next, a.channels); err != nil {
 			return fmt.Errorf("analyze %s: %w", o.Target, err)
 		}
 		*inc, st.Event = next, Updated
@@ -139,10 +143,10 @@ func (a *Analyzer) Restore(ctx context.Context, targets []string, now time.Time)
 				status: Status{State: State(inc.State), Streak: Confirm, Incident: inc}}
 			continue
 		}
-		if err := a.db.CloseIncident(ctx, inc.ID, now, closeRemoved, false); err != nil {
+		inc.Closed, inc.CloseCause = now, closeRemoved
+		if err := a.db.CloseIncident(ctx, inc, a.channels); err != nil {
 			return closed, fmt.Errorf("analyze: %w", err)
 		}
-		inc.Closed, inc.CloseCause = now, closeRemoved
 		closed = append(closed, inc)
 	}
 	return closed, nil

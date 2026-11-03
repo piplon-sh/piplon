@@ -27,6 +27,15 @@
 // must never be announced as one. Updating or closing an incident that is not
 // open returns ErrNoOpenIncident. Incidents are not pruned by retention.
 //
+// The notifications table is an outbox. OpenIncident, UpdateIncident and
+// CloseIncident take the channels to notify and, in the same transaction as
+// the incident change, queue one Notification per channel with a JSON
+// snapshot of the incident as the event left it: a crash cannot lose an event
+// nor queue one for a change that did not happen, and a unique index on
+// (incident, event, instant, channel) queues each event once. Due lists the
+// undelivered notifications whose next attempt has come, Delivered marks one
+// sent, and Failed counts an attempt and sets the next one.
+//
 // Store is the interface the rest of piplon depends on; *DB is its SQLite
 // implementation.
 package store

@@ -32,7 +32,7 @@ func at(o probe.Outcome, n int) probe.Outcome {
 
 func TestIncidentLifecycle(t *testing.T) {
 	db := openStore(t)
-	a := New(db, "standard-v1", 2)
+	a := New(db, "standard-v1", 2, []string{"slack"})
 	ok := outcome(turn(1000*ms, 0), turn(900*ms, 4000), turn(900*ms, 4000))
 	steps := []struct {
 		o     probe.Outcome
@@ -78,22 +78,29 @@ func TestIncidentLifecycle(t *testing.T) {
 	if open, _ := db.OpenIncidents(t.Context()); len(open) != 0 {
 		t.Errorf("still open in the store: %+v", open)
 	}
+	due, _ := db.Due(t.Context(), monday.Add(time.Hour), 10)
+	if len(due) != 3 || due[0].Event != store.EventOpened || due[1].Event != store.EventUpdated || due[2].Event != store.EventClosed {
+		t.Errorf("outbox: got %+v, want opened, updated, closed for slack", due)
+	}
 }
 
 func TestRestoreResumesAndClosesRemovedTargets(t *testing.T) {
 	db := openStore(t)
 	for _, target := range []string{"t", "old"} {
-		if _, err := db.OpenIncident(t.Context(), store.Incident{Target: target, Scenario: "standard-v1", State: "down", Opened: monday}); err != nil {
+		if _, err := db.OpenIncident(t.Context(), store.Incident{Target: target, Scenario: "standard-v1", State: "down", Opened: monday}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
-	a := New(db, "standard-v1", 2)
+	a := New(db, "standard-v1", 2, []string{"slack"})
 	closed, err := a.Restore(t.Context(), []string{"t"}, monday.Add(time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(closed) != 1 || closed[0].Target != "old" || closed[0].Resolved || closed[0].CloseCause != "target removed from config" {
 		t.Fatalf("administrative closes: got %+v", closed)
+	}
+	if due, _ := db.Due(t.Context(), monday.Add(time.Hour), 10); len(due) != 1 || due[0].Event != store.EventClosed || due[0].Incident.Resolved {
+		t.Errorf("outbox: got %+v, want one administrative close, not resolved", due)
 	}
 
 	st, _ := a.Observe(t.Context(), at(outcome(badKey), 61))
