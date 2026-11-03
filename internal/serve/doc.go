@@ -31,6 +31,10 @@
 //
 //   - piplon_last_probe_timestamp_seconds and piplon_last_probe_success, for
 //     each configured target's latest probe;
+//   - piplon_target_state{state}, for each configured target piplon run has
+//     judged: 1 for its current state after hysteresis, 0 for every other
+//     state, so a change never leaves a gap; and
+//     piplon_target_state_since_seconds, when that state began;
 //   - piplon_incident_open{state}, 1 per open incident;
 //   - piplon_notifications{channel, status} (pending, delivered, abandoned)
 //     and piplon_notification_oldest_pending_seconds{channel};

@@ -234,7 +234,7 @@ func TestRunClosesIncidentsOfRemovedTargets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.OpenIncident(t.Context(), store.Incident{Target: "removed", Scenario: "standard-v1", State: "down", Opened: time.Now().Add(-time.Hour)}, nil)
+	_, err = db.OpenIncident(t.Context(), store.Incident{Target: "removed", Scenario: "standard-v1", State: "down", Opened: time.Now().Add(-time.Hour)}, nil, nil)
 	_ = db.Close()
 	if err != nil {
 		t.Fatal(err)

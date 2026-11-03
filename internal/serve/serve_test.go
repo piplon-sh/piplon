@@ -114,7 +114,7 @@ func TestMetricsGolden(t *testing.T) {
 	// day's spend and, for configured targets, in the last-probe gauges.
 	insert(t, db, healthy("a", t0.Add(-time.Hour)), healthy("removed", t0.Add(-time.Hour)))
 	inc := store.Incident{Target: "b", Scenario: "standard-v1", State: "down", Cause: "the key was rejected", Opened: t0.Add(-10 * time.Minute)}
-	if _, err := db.OpenIncident(t.Context(), inc, []string{"slack", "webhook"}); err != nil {
+	if _, err := db.OpenIncident(t.Context(), inc, []string{"slack", "webhook"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	due, err := db.Due(t.Context(), now, 10)
@@ -126,6 +126,15 @@ func TestMetricsGolden(t *testing.T) {
 			if err := db.Delivered(t.Context(), n.ID, now); err != nil {
 				t.Fatal(err)
 			}
+		}
+	}
+	for _, ts := range []store.TargetState{
+		{Target: "a", Scenario: "standard-v1", State: "ok", Since: t0.Add(-time.Hour), LastState: "errors", Last: t0.Add(4 * time.Minute)},
+		{Target: "b", Scenario: "standard-v1", State: "down", Since: t0.Add(-12 * time.Minute), Cause: "the key was rejected", LastState: "down", Last: t0.Add(3 * time.Minute)},
+		{Target: "removed", Scenario: "standard-v1", State: "down", Since: t0.Add(-time.Hour), LastState: "down", Last: t0.Add(-time.Hour)},
+	} {
+		if err := db.SaveTargetState(t.Context(), ts); err != nil {
+			t.Fatal(err)
 		}
 	}
 	h := handler(t, db, &now)

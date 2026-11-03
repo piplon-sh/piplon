@@ -70,11 +70,11 @@ func TestOutboxCountsEachChannelByStatus(t *testing.T) {
 	opened := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
 	inc := Incident{Target: "a", Scenario: "standard-v1", State: "down", Opened: opened}
 	var err error
-	if inc.ID, err = db.OpenIncident(ctx, inc, channels); err != nil {
+	if inc.ID, err = db.OpenIncident(ctx, inc, channels, nil); err != nil {
 		t.Fatal(err)
 	}
 	inc.State, inc.Updated = "errors", opened.Add(time.Minute)
-	if err := db.UpdateIncident(ctx, inc, channels); err != nil {
+	if err := db.UpdateIncident(ctx, inc, channels, nil); err != nil {
 		t.Fatal(err)
 	}
 	due, err := db.Due(ctx, opened.Add(time.Hour), 10)

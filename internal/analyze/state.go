@@ -23,6 +23,9 @@ const (
 	Gone      State = "gone"       // the model is not found
 )
 
+// States lists every State, from least to most severe.
+var States = []State{OK, CacheMiss, Slow, Refused, Errors, Down, Gone}
+
 var severity = map[State]int{OK: 0, CacheMiss: 1, Slow: 2, Refused: 3, Errors: 4, Down: 5, Gone: 6}
 
 // Hard reports whether s needs no baseline to be judged.
@@ -124,28 +127,34 @@ const Confirm = 3
 
 // Status is a target's state after hysteresis.
 type Status struct {
-	State   State   // the first probe's verdict, then the last confirmed one
-	Pending State   // a different state seen Count probes in a row, empty if none
-	Count   int     // probes in a row in Pending
-	Last    Verdict // the latest probe sent
-	Changed bool    // the latest probe confirmed a new State; never on the first
-	Failing int     // hard failures in a row, of any state, up to the latest probe
-	Streak  int     // probes in a row judged State, up to the latest probe
+	State   State     // the first probe's verdict, then the last confirmed one
+	Since   time.Time // when State began: the first of the probes that confirmed it
+	Cause   string    // the probable cause from the latest probe judged State, empty for ok
+	Pending State     // a different state seen Count probes in a row, empty if none
+	Count   int       // probes in a row in Pending
+	Last    Verdict   // the latest probe sent
+	Changed bool      // the latest probe confirmed a new State; never on the first
+	Failing int       // hard failures in a row, of any state, up to the latest probe
+	Streak  int       // probes in a row judged State, up to the latest probe
 
 	// Set by Analyzer: what the latest probe did to the target's incident,
 	// and that incident, open or just closed. Incident is zero when there is
 	// none.
 	Event    Event
 	Incident store.Incident
+
+	pendingSince time.Time // when Pending began
 }
 
 // Confirming reports whether the latest probe failed hard and fewer than
 // Confirm probes in a row have, so the failure is worth checking again soon.
 func (s Status) Confirming() bool { return s.Failing > 0 && s.Failing < Confirm }
 
-// observe applies one verdict. The first one sets State directly, so a bad
-// key shows as down after one probe; hysteresis applies to every change after.
-func (s *Status) observe(v Verdict) {
+// observe applies the verdict of a probe started at at. The first one sets
+// State directly, so a bad key shows as down after one probe; hysteresis
+// applies to every change after, and a confirmed State dates from the first
+// probe of the run that confirmed it.
+func (s *Status) observe(v Verdict, at time.Time) {
 	s.Last, s.Changed = v, false
 	if v.State.Hard() {
 		s.Failing++
@@ -154,18 +163,20 @@ func (s *Status) observe(v Verdict) {
 	}
 	switch {
 	case s.State == "":
-		s.State, s.Streak = v.State, 1
+		s.State, s.Since, s.Cause, s.Streak = v.State, at, v.Cause, 1
 		return
 	case v.State == s.State:
-		s.Pending, s.Count = "", 0
+		s.Pending, s.Count, s.pendingSince = "", 0, time.Time{}
+		s.Cause = v.Cause
 		s.Streak++
 		return
 	case v.State != s.Pending:
-		s.Pending, s.Count = v.State, 0
+		s.Pending, s.Count, s.pendingSince = v.State, 0, at
 	}
 	s.Count++
 	s.Streak = 0
 	if s.Count >= Confirm {
-		s.State, s.Pending, s.Streak, s.Count, s.Changed = v.State, "", s.Count, 0, true
+		s.State, s.Since, s.Cause, s.Streak, s.Changed = v.State, s.pendingSince, v.Cause, s.Count, true
+		s.Pending, s.Count, s.pendingSince = "", 0, time.Time{}
 	}
 }

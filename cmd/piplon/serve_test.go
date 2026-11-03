@@ -54,10 +54,13 @@ func TestRunServesTheEndpointsWhenListenIsSet(t *testing.T) {
 	var logs syncBuffer
 	stop := startRun(t, path, &logs)
 	base := "http://" + addrIn(t, &logs)
-	want := `piplon_probes_total{result="ok",scenario="standard-v1",target="fake"} 1`
-	waitFor(t, "the first probe in /metrics", func() bool {
+	want := []string{
+		`piplon_probes_total{result="ok",scenario="standard-v1",target="fake"} 1`,
+		`piplon_target_state{scenario="standard-v1",state="ok",target="fake"} 1`,
+	}
+	waitFor(t, "the first probe and its state in /metrics", func() bool {
 		_, body := fetch(t, base+"/metrics")
-		return strings.Contains(body, want)
+		return strings.Contains(body, want[0]) && strings.Contains(body, want[1])
 	})
 	if code, _ := fetch(t, base+"/readyz"); code != http.StatusOK {
 		t.Errorf("/readyz: got %d, want 200", code)

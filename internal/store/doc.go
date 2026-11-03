@@ -42,6 +42,14 @@
 // on one, which lets the next event of that incident through. Outbox counts
 // each channel's notifications by status, with the oldest pending one.
 //
+// A TargetState is a target's current state as piplon run judges it, one row
+// per target: the confirmed state, since when, its cause, what the latest
+// probe measured and the open incident. SaveTargetState replaces it;
+// OpenIncident, UpdateIncident and CloseIncident take one to save in their
+// transaction, so the state and the incident never disagree. TargetStates
+// lists them, and ForgetTargets deletes those of targets no longer
+// configured.
+//
 // Store is the interface the rest of piplon depends on; *DB is its SQLite
 // implementation.
 package store

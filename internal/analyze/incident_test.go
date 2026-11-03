@@ -97,7 +97,7 @@ func TestIncidentLifecycle(t *testing.T) {
 func TestRestoreResumesAndClosesRemovedTargets(t *testing.T) {
 	db := openStore(t)
 	for _, target := range []string{"t", "old"} {
-		if _, err := db.OpenIncident(t.Context(), store.Incident{Target: target, Scenario: "standard-v1", State: "down", Opened: monday}, nil); err != nil {
+		if _, err := db.OpenIncident(t.Context(), store.Incident{Target: target, Scenario: "standard-v1", State: "down", Opened: monday}, nil, nil); err != nil {
 			t.Fatal(err)
 		}
 	}

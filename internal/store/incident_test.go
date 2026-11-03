@@ -11,16 +11,16 @@ func TestIncidentLifecycle(t *testing.T) {
 	ctx := t.Context()
 	opened := time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)
 	inc := Incident{Target: "a", Scenario: "standard-v1", State: "down", Cause: "the key was rejected", Detail: "turn 1: http 401", Opened: opened}
-	id, err := db.OpenIncident(ctx, inc, nil)
+	id, err := db.OpenIncident(ctx, inc, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.OpenIncident(ctx, inc, nil); err == nil {
+	if _, err := db.OpenIncident(ctx, inc, nil, nil); err == nil {
 		t.Error("a second open incident for the same target was accepted")
 	}
 
 	inc.ID, inc.State, inc.Cause, inc.Updated = id, "errors", "the provider is overloaded", opened.Add(time.Minute)
-	if err := db.UpdateIncident(ctx, inc, nil); err != nil {
+	if err := db.UpdateIncident(ctx, inc, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	open, err := db.OpenIncidents(ctx)
@@ -29,13 +29,13 @@ func TestIncidentLifecycle(t *testing.T) {
 	}
 
 	inc.Closed, inc.CloseCause, inc.Resolved = opened.Add(time.Hour), "back to ok", true
-	if err := db.CloseIncident(ctx, inc, nil); err != nil {
+	if err := db.CloseIncident(ctx, inc, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.CloseIncident(ctx, inc, nil); !errors.Is(err, ErrNoOpenIncident) {
+	if err := db.CloseIncident(ctx, inc, nil, nil); !errors.Is(err, ErrNoOpenIncident) {
 		t.Errorf("closing twice: got %v, want ErrNoOpenIncident", err)
 	}
-	if err := db.UpdateIncident(ctx, inc, nil); !errors.Is(err, ErrNoOpenIncident) {
+	if err := db.UpdateIncident(ctx, inc, nil, nil); !errors.Is(err, ErrNoOpenIncident) {
 		t.Errorf("updating a closed incident: got %v, want ErrNoOpenIncident", err)
 	}
 	got, err := db.incident(ctx, id)
@@ -45,7 +45,7 @@ func TestIncidentLifecycle(t *testing.T) {
 	if open, _ := db.OpenIncidents(ctx); len(open) != 0 {
 		t.Errorf("still open: %+v", open)
 	}
-	if _, err := db.OpenIncident(ctx, inc, nil); err != nil {
+	if _, err := db.OpenIncident(ctx, inc, nil, nil); err != nil {
 		t.Errorf("a new incident after the close was refused: %v", err)
 	}
 }
@@ -54,12 +54,12 @@ func TestAdministrativeCloseIsNotResolved(t *testing.T) {
 	db, _ := openTemp(t)
 	ctx := t.Context()
 	inc := Incident{Target: "old", Scenario: "standard-v1", State: "down", Opened: time.Now()}
-	id, err := db.OpenIncident(ctx, inc, nil)
+	id, err := db.OpenIncident(ctx, inc, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	inc.ID, inc.Closed, inc.CloseCause = id, time.Now(), "target removed from config"
-	if err := db.CloseIncident(ctx, inc, nil); err != nil {
+	if err := db.CloseIncident(ctx, inc, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := db.incident(ctx, id); got.Resolved || got.CloseCause != "target removed from config" || got.Closed.IsZero() {

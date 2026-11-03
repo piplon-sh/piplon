@@ -7,6 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/piplon-sh/piplon/internal/analyze"
 	"github.com/piplon-sh/piplon/internal/config"
 	"github.com/piplon-sh/piplon/internal/probe"
 	"github.com/piplon-sh/piplon/internal/store"
@@ -43,6 +44,7 @@ type metrics struct {
 	spent     float64
 	incidents []store.Incident
 	outbox    []store.ChannelOutbox
+	states    []store.TargetState
 	now       time.Time // of the latest refresh
 
 	probes, responses, cuts, refusals, cache, tokens *prometheus.CounterVec
@@ -135,7 +137,10 @@ func (m *metrics) refreshGauges(ctx context.Context) error {
 	if m.incidents, err = m.db.OpenIncidents(ctx); err != nil {
 		return err
 	}
-	m.outbox, err = m.db.Outbox(ctx)
+	if m.outbox, err = m.db.Outbox(ctx); err != nil {
+		return err
+	}
+	m.states, err = m.db.TargetStates(ctx)
 	return err
 }
 
@@ -236,6 +241,10 @@ var (
 		"Notifications in the outbox, by channel and status.", []string{"channel", "status"}, nil)
 	oldestPending = prometheus.NewDesc("piplon_notification_oldest_pending_seconds",
 		"Age of the oldest notification not delivered yet, 0 when none is pending.", []string{"channel"}, nil)
+	targetState = prometheus.NewDesc("piplon_target_state",
+		"1 for the target's current state, 0 for the others, as piplon run judges it after hysteresis.", []string{"target", "scenario", "state"}, nil)
+	targetSince = prometheus.NewDesc("piplon_target_state_since_seconds",
+		"When the target's current state began, in Unix seconds.", []string{"target", "scenario"}, nil)
 	budgetDaily = prometheus.NewDesc("piplon_budget_daily_usd",
 		"The daily probing budget, budget.daily_usd.", nil, nil)
 	budgetSpent = prometheus.NewDesc("piplon_budget_spent_usd",
@@ -243,7 +252,8 @@ var (
 )
 
 func (gauges) Describe(ch chan<- *prometheus.Desc) {
-	for _, d := range []*prometheus.Desc{lastProbeAt, lastProbeOK, incidentOpen, notifications, oldestPending, budgetDaily, budgetSpent} {
+	for _, d := range []*prometheus.Desc{lastProbeAt, lastProbeOK, incidentOpen, notifications, oldestPending,
+		targetState, targetSince, budgetDaily, budgetSpent} {
 		ch <- d
 	}
 }
@@ -263,6 +273,19 @@ func (g gauges) Collect(ch chan<- prometheus.Metric) {
 		}
 		gauge(lastProbeAt, float64(p.at.UnixMilli())/1e3, target, p.scenario)
 		gauge(lastProbeOK, ok, target, p.scenario)
+	}
+	for _, ts := range m.states {
+		if _, ok := m.last[ts.Target]; !ok {
+			continue // not configured here
+		}
+		for _, state := range analyze.States {
+			v := 0.0
+			if string(state) == ts.State {
+				v = 1
+			}
+			gauge(targetState, v, ts.Target, ts.Scenario, string(state))
+		}
+		gauge(targetSince, float64(ts.Since.UnixMilli())/1e3, ts.Target, ts.Scenario)
 	}
 	for _, inc := range m.incidents {
 		gauge(incidentOpen, 1, inc.Target, inc.Scenario, inc.State)

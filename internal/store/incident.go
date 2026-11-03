@@ -36,8 +36,9 @@ const (
 
 // OpenIncident stores a new open incident, queues its opening for each of
 // channels in the same transaction, and returns its ID. A target has at most
-// one open incident; opening a second one fails.
-func (db *DB) OpenIncident(ctx context.Context, inc Incident, channels []string) (int64, error) {
+// one open incident; opening a second one fails. A non-nil state is saved in
+// the same transaction, with the new incident's ID.
+func (db *DB) OpenIncident(ctx context.Context, inc Incident, channels []string, state *TargetState) (int64, error) {
 	err := db.inTx(ctx, func(tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, `INSERT INTO incidents
 			(target, scenario, state, cause, detail, opened_ms, updated_ms) VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -49,7 +50,10 @@ func (db *DB) OpenIncident(ctx context.Context, inc Incident, channels []string)
 			return err
 		}
 		inc.Updated = inc.Opened
-		return queue(ctx, tx, EventOpened, inc.Opened, inc, channels)
+		if state != nil {
+			state.IncidentID = inc.ID
+		}
+		return queue(ctx, tx, EventOpened, inc.Opened, inc, channels, state)
 	})
 	if err != nil {
 		return 0, fmt.Errorf("open incident %s: %w", inc.Target, err)
@@ -58,14 +62,15 @@ func (db *DB) OpenIncident(ctx context.Context, inc Incident, channels []string)
 }
 
 // UpdateIncident sets the state, cause, detail and Updated of an open
-// incident and queues the update for each of channels.
-func (db *DB) UpdateIncident(ctx context.Context, inc Incident, channels []string) error {
+// incident and queues the update for each of channels. A non-nil state is
+// saved in the same transaction.
+func (db *DB) UpdateIncident(ctx context.Context, inc Incident, channels []string, state *TargetState) error {
 	err := db.inTx(ctx, func(tx *sql.Tx) error {
 		if err := changeOne(ctx, tx, `UPDATE incidents SET state = ?, cause = ?, detail = ?, updated_ms = ?
 			WHERE id = ? AND closed_ms IS NULL`, inc.State, inc.Cause, inc.Detail, inc.Updated.UnixMilli(), inc.ID); err != nil {
 			return err
 		}
-		return queue(ctx, tx, EventUpdated, inc.Updated, inc, channels)
+		return queue(ctx, tx, EventUpdated, inc.Updated, inc, channels, state)
 	})
 	if err != nil {
 		return fmt.Errorf("update incident %d: %w", inc.ID, err)
@@ -74,14 +79,15 @@ func (db *DB) UpdateIncident(ctx context.Context, inc Incident, channels []strin
 }
 
 // CloseIncident closes an open incident at inc.Closed with inc.CloseCause
-// and inc.Resolved, and queues the close for each of channels.
-func (db *DB) CloseIncident(ctx context.Context, inc Incident, channels []string) error {
+// and inc.Resolved, and queues the close for each of channels. A non-nil
+// state is saved in the same transaction.
+func (db *DB) CloseIncident(ctx context.Context, inc Incident, channels []string, state *TargetState) error {
 	err := db.inTx(ctx, func(tx *sql.Tx) error {
 		if err := changeOne(ctx, tx, `UPDATE incidents SET closed_ms = ?, close_cause = ?, resolved = ?
 			WHERE id = ? AND closed_ms IS NULL`, inc.Closed.UnixMilli(), inc.CloseCause, inc.Resolved, inc.ID); err != nil {
 			return err
 		}
-		return queue(ctx, tx, EventClosed, inc.Closed, inc, channels)
+		return queue(ctx, tx, EventClosed, inc.Closed, inc, channels, state)
 	})
 	if err != nil {
 		return fmt.Errorf("close incident %d: %w", inc.ID, err)
@@ -115,8 +121,13 @@ func changeOne(ctx context.Context, tx *sql.Tx, query string, args ...any) error
 }
 
 // queue adds one outbox row per channel, due at once, with a snapshot of
-// the incident as the event left it.
-func queue(ctx context.Context, tx *sql.Tx, event string, at time.Time, inc Incident, channels []string) error {
+// the incident as the event left it, and saves state when it is not nil.
+func queue(ctx context.Context, tx *sql.Tx, event string, at time.Time, inc Incident, channels []string, state *TargetState) error {
+	if state != nil {
+		if err := saveState(ctx, tx, *state); err != nil {
+			return fmt.Errorf("save state: %w", err)
+		}
+	}
 	snapshot, err := json.Marshal(inc)
 	if err != nil {
 		return err

@@ -48,10 +48,13 @@ type Store interface {
 	SamplesAfter(ctx context.Context, id int64) ([]Sample, error)
 	LatestProbes(ctx context.Context) ([]Sample, error)
 	Prune(ctx context.Context, cutoff time.Time) (int64, error)
-	OpenIncident(ctx context.Context, inc Incident, channels []string) (int64, error)
-	UpdateIncident(ctx context.Context, inc Incident, channels []string) error
-	CloseIncident(ctx context.Context, inc Incident, channels []string) error
+	OpenIncident(ctx context.Context, inc Incident, channels []string, state *TargetState) (int64, error)
+	UpdateIncident(ctx context.Context, inc Incident, channels []string, state *TargetState) error
+	CloseIncident(ctx context.Context, inc Incident, channels []string, state *TargetState) error
 	OpenIncidents(ctx context.Context) ([]Incident, error)
+	SaveTargetState(ctx context.Context, ts TargetState) error
+	TargetStates(ctx context.Context) ([]TargetState, error)
+	ForgetTargets(ctx context.Context, keep []string) error
 	Due(ctx context.Context, now time.Time, limit int) ([]Notification, error)
 	Delivered(ctx context.Context, id int64, at time.Time) error
 	Failed(ctx context.Context, id int64, next time.Time, reason string) error
