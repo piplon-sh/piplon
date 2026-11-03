@@ -34,7 +34,10 @@ func dashboardStore(t *testing.T) (*store.DB, time.Time) {
 			t.Fatal(err)
 		}
 		if !closed.IsZero() {
-			inc.ID, inc.Closed, inc.Resolved, inc.CloseCause = id, closed, resolved, "back to ok"
+			inc.ID, inc.Closed, inc.Resolved, inc.CloseCause = id, closed, resolved, "back to ok for 3 probes in a row"
+			if !resolved {
+				inc.CloseCause = "target removed from config"
+			}
 			if err := db.CloseIncident(t.Context(), inc, nil, nil); err != nil {
 				t.Fatal(err)
 			}
@@ -50,7 +53,7 @@ func dashboardStore(t *testing.T) (*store.DB, time.Time) {
 		{Target: "a", Scenario: "standard-v1", State: "ok", Since: t0.Add(-26*time.Hour + 14*time.Minute), LastState: "ok", Last: t0.Add(10 * time.Minute)},
 		{Target: "b", Scenario: "standard-v1", State: "down", Since: t0.Add(-14 * time.Minute),
 			Cause:     "the key was rejected: check its value, its permissions and the account's billing",
-			LastState: "down", LastDetail: "turn 1: http 401: invalid x-api-key", Last: t0.Add(9 * time.Minute)},
+			LastState: "down", LastDetail: "turn 1: http 401: invalid x-api-key", Last: t0.Add(9 * time.Minute), IncidentID: 4},
 	} {
 		if err := db.SaveTargetState(t.Context(), ts); err != nil {
 			t.Fatal(err)
