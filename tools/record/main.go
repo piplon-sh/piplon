@@ -2,10 +2,24 @@
 // answers as replay fixtures under internal/probe/testdata/<format>/recorded/.
 //
 // It is a development tool, not part of the piplon binary. It costs one real
-// probe (a few cents) and needs a key in the environment:
+// probe (a few cents, nothing on Groq's free plan) and needs a key in the
+// environment:
 //
 //	ANTHROPIC_API_KEY=... go run ./tools/record --format anthropic --model claude-sonnet-4-5
 //	OPENAI_API_KEY=... go run ./tools/record --format openai --model gpt-4o-mini
+//	GROQ_API_KEY=... go run ./tools/record --format groq --model llama-3.1-8b-instant
+//
+// groq probes Groq's OpenAI-compatible API with the openai adapter.
+//
+// --max-output-tokens and --reasoning-effort set what the target options
+// max_output_tokens and reasoning_effort set, so a reasoning model can be
+// recorded as piplon would probe it:
+//
+//	go run ./tools/record --format groq --model openai/gpt-oss-20b --reasoning-effort low --max-output-tokens 200
+//
+// With --save-error FILE, turn 1 is expected to get an HTTP error, such as a
+// 404 for a model that does not exist or a 401 for a wrong key, and its body
+// is saved as FILE next to the recorded/ directory instead of the turns.
 //
 // With --debug, a failed turn's raw answer is printed to stderr instead, with
 // ids scrubbed and never if it contains the key, so a mismatch between the
@@ -45,26 +59,39 @@ func main() {
 var defaults = map[string]struct{ url, keyEnv string }{
 	"anthropic": {"https://api.anthropic.com", "ANTHROPIC_API_KEY"},
 	"openai":    {"https://api.openai.com/v1", "OPENAI_API_KEY"},
+	"groq":      {"https://api.groq.com/openai/v1", "GROQ_API_KEY"},
 }
 
 func run(args []string, getenv func(string) string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("record", flag.ContinueOnError)
-	format := fs.String("format", "", "anthropic or openai")
+	format := fs.String("format", "", "anthropic, openai or groq")
 	model := fs.String("model", "", "model to probe")
 	url := fs.String("url", "", "base URL (default: the provider's public API)")
 	keyEnv := fs.String("key-env", "", "environment variable holding the key (default per format)")
 	out := fs.String("out", "", "output directory (default internal/probe/testdata/<format>/recorded)")
 	timeout := fs.Duration("timeout", time.Minute, "timeout for the whole probe")
 	debug := fs.Bool("debug", false, "on failure, print the failed turn's raw answer (body only, ids scrubbed) to stderr")
+	maxOut := fs.Int("max-output-tokens", 0, "replace the scenario's output limit, as max_output_tokens does (1..4096)")
+	effort := fs.String("reasoning-effort", "", "send reasoning_effort, as the target option does (openai and groq only)")
+	saveError := fs.String("save-error", "", "expect an HTTP error on turn 1 and save its body as this file, next to the output directory")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	d, ok := defaults[*format]
 	if !ok {
-		return fmt.Errorf("--format must be anthropic or openai, got %q", *format)
+		return fmt.Errorf("--format must be anthropic, openai or groq, got %q", *format)
 	}
 	if *model == "" {
 		return errors.New("--model is required")
+	}
+	switch {
+	case *maxOut < 0 || *maxOut > 4096:
+		return fmt.Errorf("--max-output-tokens %d is outside 1..4096", *maxOut)
+	case *effort != "" && *format == "anthropic":
+		return errors.New("--reasoning-effort is only sent by the openai adapter")
+	}
+	if *saveError != "" && filepath.Base(*saveError) != *saveError {
+		return fmt.Errorf("--save-error takes a file name, not a path: %q", *saveError)
 	}
 	*url = or(*url, d.url)
 	*keyEnv = or(*keyEnv, d.keyEnv)
@@ -83,13 +110,17 @@ func run(args []string, getenv func(string) string, stdout, stderr io.Writer) er
 	var p probe.Prober
 	switch *format {
 	case "anthropic":
-		p = &probe.Anthropic{URL: *url, Model: *model, Key: config.Secret(key), Client: client}
-	case "openai":
-		p = &probe.OpenAI{URL: *url, Model: *model, Key: config.Secret(key), Client: client}
+		p = &probe.Anthropic{URL: *url, Model: *model, Key: config.Secret(key), Client: client, MaxOutputTokens: *maxOut}
+	case "openai", "groq":
+		p = &probe.OpenAI{URL: *url, Model: *model, Key: config.Secret(key), Client: client,
+			MaxOutputTokens: *maxOut, ReasoningEffort: *effort}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 	res := p.Probe(ctx, s)
+	if *saveError != "" {
+		return writeError(filepath.Join(filepath.Dir(*out), *saveError), res, rec.bodies(), key, stdout)
+	}
 	for i, t := range res.Turns {
 		if t.Error == "" {
 			continue
@@ -132,6 +163,31 @@ func write(dir string, bodies [][]byte, key string, stdout io.Writer) error {
 	return err
 }
 
+// writeError saves the body of turn 1's HTTP error at path, scrubbed, after
+// checking that it does not contain the key. A success, or a failure with no
+// HTTP answer, writes nothing.
+func writeError(path string, res probe.Result, bodies [][]byte, key string, stdout io.Writer) error {
+	if len(res.Turns) == 0 || len(bodies) == 0 {
+		return errors.New("no answer to turn 1, nothing written")
+	}
+	t := res.Turns[0]
+	if t.HTTPStatus == 0 || t.HTTPStatus == http.StatusOK {
+		return fmt.Errorf("turn 1 got no HTTP error (status %d, %q), nothing written", t.HTTPStatus, t.Error)
+	}
+	if bytes.Contains(bodies[0], []byte(key)) {
+		return errors.New("the error body contains the key, nothing written")
+	}
+	body, n := scrub(bodies[0])
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(stdout, "wrote %s (HTTP %d: %s)\nscrubbed %d ids, 0 headers kept\n", path, t.HTTPStatus, t.Error, n)
+	return err
+}
+
 // showBody prints the scrubbed raw body of turn i, unless it holds the key.
 // Bodies are all the recorder keeps: headers are never available to print.
 func showBody(w io.Writer, i int, bodies [][]byte, key string) error {
@@ -149,7 +205,7 @@ func showBody(w io.Writer, i int, bodies [][]byte, key string) error {
 }
 
 // ids matches provider-generated identifiers; the prefix is kept.
-var ids = regexp.MustCompile(`\b(msg_|toolu_|chatcmpl-|call_|fp_)[A-Za-z0-9_-]+`)
+var ids = regexp.MustCompile(`\b(msg_|toolu_|chatcmpl-|call_|fp_|req_)[A-Za-z0-9_-]+`)
 
 // scrub replaces provider ids and reports how many it replaced.
 func scrub(b []byte) ([]byte, int) {

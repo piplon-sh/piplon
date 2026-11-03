@@ -1,5 +1,6 @@
 # binaries and build output
 /piplon
+/record
 /dist/
 /bin/
 *.exe
