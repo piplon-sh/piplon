@@ -1,0 +1,15 @@
+{
+  "embeds": [
+    {
+      "title": "🟢 anthropic-direct is back to ok",
+      "description": "Was down for 4 min · cause: the key was rejected",
+      "color": 3120731,
+      "footer": {
+        "text": "#12 · standard-v1 · 2026-11-03 09:02 → 09:06 UTC"
+      }
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  }
+}

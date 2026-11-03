@@ -1,0 +1,26 @@
+{
+  "embeds": [
+    {
+      "title": "🟠 anthropic-direct is slow",
+      "color": 14256911,
+      "fields": [
+        {
+          "name": "Cause",
+          "value": "slower than usual at this time: the provider or the path to it is degraded",
+          "inline": false
+        },
+        {
+          "name": "Measured",
+          "value": "`TTFT 2400 ms, usually 1100 ms`",
+          "inline": false
+        }
+      ],
+      "footer": {
+        "text": "#12 · standard-v1 · since 2026-11-03 09:02 UTC"
+      }
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  }
+}

@@ -76,7 +76,7 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 	defer wg.Wait()
 	wg.Go(func() { db.RunRetention(ctx, time.Duration(cfg.Store.Retention), retentionEvery, log) })
 
-	disp := notify.NewDispatcher(db, log, channels(cfg.Notify, log)...)
+	disp := notify.NewDispatcher(db, log, channels(cfg.Notify)...)
 	an := analyze.New(db, sc.ID(), sc.Cache.ExpectHitFromTurn, disp.Names())
 	names := make([]string, len(jobs))
 	for i, j := range jobs {
@@ -193,9 +193,8 @@ func record(ctx context.Context, db store.Store, log *slog.Logger, o probe.Outco
 	log.Info("probe done", attrs...)
 }
 
-// channels returns the configured notification channels. Discord is
-// validated by config but not sent to yet.
-func channels(n config.Notify, log *slog.Logger) []notify.Channel {
+// channels returns the configured notification channels.
+func channels(n config.Notify) []notify.Channel {
 	var out []notify.Channel
 	if n.Slack != "" {
 		out = append(out, notify.Slack{URL: n.Slack})
@@ -204,7 +203,7 @@ func channels(n config.Notify, log *slog.Logger) []notify.Channel {
 		out = append(out, notify.Webhook{URL: n.Webhook})
 	}
 	if n.Discord != "" {
-		log.Warn("notify.discord is not supported yet and is ignored")
+		out = append(out, notify.Discord{URL: n.Discord})
 	}
 	return out
 }
