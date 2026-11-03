@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -81,4 +82,42 @@ func (db *DB) Failed(ctx context.Context, id int64, next time.Time, reason strin
 		return fmt.Errorf("notification %d: %w", id, err)
 	}
 	return nil
+}
+
+// ChannelOutbox counts one channel's notifications by status. OldestPending
+// is when the oldest pending one was queued, zero when none is pending.
+type ChannelOutbox struct {
+	Channel                       string
+	Pending, Delivered, Abandoned int
+	OldestPending                 time.Time
+}
+
+// Outbox returns the counts of every channel that has notifications, by
+// channel name.
+func (db *DB) Outbox(ctx context.Context) ([]ChannelOutbox, error) {
+	rows, err := db.sql.QueryContext(ctx, `SELECT channel,
+		COUNT(*) FILTER (WHERE delivered_ms IS NULL AND abandoned_ms IS NULL),
+		COUNT(delivered_ms), COUNT(abandoned_ms),
+		MIN(at_ms) FILTER (WHERE delivered_ms IS NULL AND abandoned_ms IS NULL)
+		FROM notifications GROUP BY channel ORDER BY channel`)
+	if err != nil {
+		return nil, fmt.Errorf("query outbox: %w", err)
+	}
+	defer func() { _ = rows.Close() }() // errors surface through rows.Err
+	var out []ChannelOutbox
+	for rows.Next() {
+		var c ChannelOutbox
+		var oldest sql.NullInt64
+		if err := rows.Scan(&c.Channel, &c.Pending, &c.Delivered, &c.Abandoned, &oldest); err != nil {
+			return nil, fmt.Errorf("query outbox: %w", err)
+		}
+		if oldest.Valid {
+			c.OldestPending = time.UnixMilli(oldest.Int64).UTC()
+		}
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("query outbox: %w", err)
+	}
+	return out, nil
 }

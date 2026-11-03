@@ -22,6 +22,7 @@ type Config struct {
 	Targets     []Target      `yaml:"targets"`
 	Notify      Notify        `yaml:"notify"`
 	Store       Store         `yaml:"store"`
+	Serve       Serve         `yaml:"serve"`
 }
 
 // Budget caps what probing may spend per day.
@@ -72,6 +73,16 @@ type Store struct {
 	Path      string   `yaml:"path"`
 	Retention Duration `yaml:"retention"`
 }
+
+// Serve configures the HTTP endpoints. Listen is empty unless set: piplon
+// run serves only when it is, and piplon serve falls back to DefaultListen.
+type Serve struct {
+	Listen string `yaml:"listen"`
+}
+
+// DefaultListen is where piplon serve listens without serve.listen or
+// --listen: loopback only, so nothing is exposed to the network by default.
+const DefaultListen = "127.0.0.1:9464"
 
 func defaults() *Config {
 	return &Config{
