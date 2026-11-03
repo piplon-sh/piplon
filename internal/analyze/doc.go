@@ -24,7 +24,8 @@
 // TTFT exceeds both the usual p95 and 1.5 times the usual p50, else
 // cache_miss when it missed the cache on a target that usually read it in at
 // least 80 % of probes. A target that never reads the cache is never a miss.
-// Without a baseline neither learned state is given.
+// Without a baseline neither learned state is given. TTFT is the probe TTFT
+// these use: the median of its turns.
 //
 // Every non-ok Verdict carries a probable cause, one sentence an operator can
 // act on: a rejected key (401, 403), a rate limit (429), an overloaded

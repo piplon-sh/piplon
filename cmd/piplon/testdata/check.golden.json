@@ -1,0 +1,160 @@
+{
+  "schema": "piplon.check.v1",
+  "scenario": "standard-v1",
+  "started_at": "2026-11-03T09:10:00Z",
+  "finished_at": "2026-11-03T09:10:04Z",
+  "thresholds": {
+    "max_ttft_seconds": 2,
+    "max_errors": 0,
+    "require_cache": true,
+    "retries": 0
+  },
+  "passed": false,
+  "exit_code": 1,
+  "cost_usd": 0.0142,
+  "targets": [
+    {
+      "name": "anthropic-direct",
+      "format": "anthropic",
+      "model": "claude-sonnet-4-5",
+      "passed": true,
+      "state": "ok",
+      "cause": null,
+      "detail": null,
+      "ttft_seconds": 0.39,
+      "cache": "hit",
+      "cost_usd": 0.0071,
+      "attempts": 1,
+      "failures": [],
+      "turns": [
+        {
+          "turn": 1,
+          "http_status": 200,
+          "ttft_seconds": 0.412,
+          "total_seconds": 0.712,
+          "input_tokens": 10,
+          "output_tokens": 3,
+          "cache_read_tokens": 0,
+          "cache_write_tokens": 0,
+          "stream_cut": false,
+          "expect_ok": true,
+          "error": null
+        },
+        {
+          "turn": 2,
+          "http_status": 200,
+          "ttft_seconds": 0.38,
+          "total_seconds": 0.68,
+          "input_tokens": 10,
+          "output_tokens": 3,
+          "cache_read_tokens": 1990,
+          "cache_write_tokens": 0,
+          "stream_cut": false,
+          "expect_ok": true,
+          "error": null
+        },
+        {
+          "turn": 3,
+          "http_status": 200,
+          "ttft_seconds": 0.39,
+          "total_seconds": 0.69,
+          "input_tokens": 10,
+          "output_tokens": 3,
+          "cache_read_tokens": 1990,
+          "cache_write_tokens": 0,
+          "stream_cut": false,
+          "expect_ok": true,
+          "error": null
+        }
+      ]
+    },
+    {
+      "name": "anthropic-gateway",
+      "format": "anthropic",
+      "model": "claude-sonnet-4-5",
+      "passed": false,
+      "state": "ok",
+      "cause": null,
+      "detail": null,
+      "ttft_seconds": 2.84,
+      "cache": "hit",
+      "cost_usd": 0.0071,
+      "attempts": 1,
+      "failures": [
+        "TTFT 2840 ms above 2000 ms"
+      ],
+      "turns": [
+        {
+          "turn": 1,
+          "http_status": 200,
+          "ttft_seconds": 2.84,
+          "total_seconds": 3.14,
+          "input_tokens": 10,
+          "output_tokens": 3,
+          "cache_read_tokens": 0,
+          "cache_write_tokens": 0,
+          "stream_cut": false,
+          "expect_ok": true,
+          "error": null
+        },
+        {
+          "turn": 2,
+          "http_status": 200,
+          "ttft_seconds": 2.7,
+          "total_seconds": 3,
+          "input_tokens": 10,
+          "output_tokens": 3,
+          "cache_read_tokens": 1990,
+          "cache_write_tokens": 0,
+          "stream_cut": false,
+          "expect_ok": true,
+          "error": null
+        },
+        {
+          "turn": 3,
+          "http_status": 200,
+          "ttft_seconds": 2.9,
+          "total_seconds": 3.2,
+          "input_tokens": 10,
+          "output_tokens": 3,
+          "cache_read_tokens": 1990,
+          "cache_write_tokens": 0,
+          "stream_cut": false,
+          "expect_ok": true,
+          "error": null
+        }
+      ]
+    },
+    {
+      "name": "openai-direct",
+      "format": "anthropic",
+      "model": "claude-sonnet-4-5",
+      "passed": false,
+      "state": "down",
+      "cause": "the key was rejected: check its value, its permissions and the account's billing",
+      "detail": "turn 1: http 401: authentication_error: invalid x-api-key",
+      "ttft_seconds": null,
+      "cache": null,
+      "cost_usd": 0,
+      "attempts": 1,
+      "failures": [
+        "down: the key was rejected"
+      ],
+      "turns": [
+        {
+          "turn": 1,
+          "http_status": 401,
+          "ttft_seconds": null,
+          "total_seconds": 0.183,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cache_read_tokens": 0,
+          "cache_write_tokens": 0,
+          "stream_cut": false,
+          "expect_ok": false,
+          "error": "http 401: authentication_error: invalid x-api-key"
+        }
+      ]
+    }
+  ]
+}

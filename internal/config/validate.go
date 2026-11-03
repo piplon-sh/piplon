@@ -68,7 +68,9 @@ func targetScope(i int, name string) string {
 	}
 }
 
-func validate(cfg *Config) []error {
+// validate checks cfg. dropped are targets left out by ParseTargets: they
+// still count as names, nothing else.
+func validate(cfg *Config, dropped []Target) []error {
 	var errs []error
 	add := func(scope, field string, err error) { errs = append(errs, fieldErr(scope, field, err)) }
 
@@ -112,14 +114,24 @@ func validate(cfg *Config) []error {
 	if len(cfg.Targets) == 0 {
 		add("", "targets", required("at least one target is required"))
 	}
-	return append(errs, validateTargets(cfg)...)
+	return append(errs, validateTargets(cfg, dropped)...)
 }
 
-func validateTargets(cfg *Config) []error {
+func validateTargets(cfg *Config, dropped []Target) []error {
 	var errs []error
-	seen := make(map[string]int, len(cfg.Targets))
+	seen := make(map[string]int, len(cfg.Targets)+len(dropped))
+	for _, t := range dropped {
+		if _, dup := seen[t.Name]; dup && t.Name != "" {
+			errs = append(errs, fieldErr(targetScope(0, t.Name), "name", invalid("duplicate of another target")))
+		}
+		seen[t.Name] = -1
+	}
 	for i, t := range cfg.Targets {
 		if j, dup := seen[t.Name]; dup && t.Name != "" {
+			if j < 0 {
+				errs = append(errs, fieldErr(targetScope(i, t.Name), "name", invalid("duplicate of another target")))
+				continue
+			}
 			errs = append(errs, fieldErr(targetScope(i, t.Name), "name", invalid("duplicate of targets[%d]", j)))
 			continue
 		}

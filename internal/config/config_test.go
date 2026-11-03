@@ -408,3 +408,54 @@ func TestLoadMissingFileNamesPath(t *testing.T) {
 		t.Fatalf("got %v, want an error naming the path", err)
 	}
 }
+
+const twoTargets = `
+targets:
+  - name: anthropic-direct
+    format: anthropic
+    url: https://api.anthropic.com
+    model: claude-sonnet-4-5
+    key: ${ANTHROPIC_API_KEY}
+  - name: via-gateway
+    format: openai
+    url: ${GATEWAY_URL}
+    model: claude-sonnet-4-5
+    key: ${GATEWAY_KEY}
+    compare_with: anthropic-direct
+`
+
+func TestParseTargetsNeedsOnlyTheChosenTargetsVariables(t *testing.T) {
+	cfg, err := ParseTargets([]byte(twoTargets), env(map[string]string{"ANTHROPIC_API_KEY": "sk-test"}), []string{"anthropic-direct"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Targets) != 1 || cfg.Targets[0].Name != "anthropic-direct" || cfg.Targets[0].Key.Reveal() != "sk-test" {
+		t.Errorf("got %+v, want only anthropic-direct, resolved", cfg.Targets)
+	}
+	// The other way round, compare_with still names a target of the file.
+	cfg, err = ParseTargets([]byte(twoTargets), env(map[string]string{"GATEWAY_URL": "https://gw", "GATEWAY_KEY": "k"}), []string{"via-gateway"})
+	if err != nil || len(cfg.Targets) != 1 || cfg.Targets[0].CompareWith != "anthropic-direct" {
+		t.Errorf("got %+v, %v", cfg, err)
+	}
+	if _, err := Parse([]byte(twoTargets), env(map[string]string{"ANTHROPIC_API_KEY": "sk-test"})); !errors.Is(err, ErrMissingEnv) {
+		t.Errorf("without a choice every variable is needed: got %v", err)
+	}
+}
+
+func TestParseTargetsStillValidatesTheChosenOnesAndTheRest(t *testing.T) {
+	for _, tt := range []struct {
+		name, yaml, want string
+		names            []string
+	}{
+		{"unknown name", twoTargets, `target nope: name: is not in the config`, []string{"nope"}},
+		{"chosen target invalid", twoTargets + "    timeout: 1s\n", "field timeout not found", []string{"anthropic-direct"}},
+		{"global field invalid", twoTargets + "interval: 1s\n", "interval: 1s is outside 10s..1h", []string{"anthropic-direct"}},
+		{"duplicate of a dropped target", twoTargets + "  - name: anthropic-direct\n    format: ollama\n    model: m\n",
+			"target anthropic-direct: name: duplicate", []string{"via-gateway"}},
+	} {
+		_, err := ParseTargets([]byte(tt.yaml), env(map[string]string{"ANTHROPIC_API_KEY": "k", "GATEWAY_URL": "https://gw", "GATEWAY_KEY": "k"}), tt.names)
+		if err == nil || !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("%s: got %v, want %q", tt.name, err, tt.want)
+		}
+	}
+}

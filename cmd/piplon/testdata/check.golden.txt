@@ -1,0 +1,8 @@
+piplon check · standard-v1 · 3 targets · max TTFT 2s · cache required
+
+TARGET             RESULT  STATE  TTFT p50  CACHE  COST        NOTE
+anthropic-direct   pass    ok     390 ms    hit    0.0071 USD
+anthropic-gateway  FAIL    ok     2840 ms   hit    0.0071 USD  TTFT 2840 ms above 2000 ms
+openai-direct      FAIL    down   -         -      0.0000 USD  the key was rejected · turn 1: http 401: authentication_error: invalid x-api-key
+
+2 of 3 targets failed · 0.0142 USD · exit 1
