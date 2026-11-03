@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -58,8 +59,9 @@ func fakeAnthropic(t *testing.T) (string, *atomic.Int32) {
 	return srv.URL, &n
 }
 
-// writeConfig writes a one-target config and returns its path and store path.
-func writeConfig(t *testing.T, format, url string, dailyUSD float64) (string, string) {
+// writeConfig writes a one-target config, followed by the extra YAML lines,
+// and returns its path and store path.
+func writeConfig(t *testing.T, format, url string, dailyUSD float64, extra ...string) (string, string) {
 	t.Helper()
 	t.Setenv("PIPLON_TEST_KEY", "sk-test-key")
 	dir := t.TempDir()
@@ -77,6 +79,7 @@ targets:
     key: ${PIPLON_TEST_KEY}
 store: {path: %s}
 `, dailyUSD, format, url, db)
+	cfg += strings.Join(extra, "\n")
 	if format == "bedrock" {
 		cfg = strings.Replace(cfg, "    key: ${PIPLON_TEST_KEY}\n", "", 1)
 	}
@@ -220,7 +223,13 @@ func TestRunNamesAMissingConfig(t *testing.T) {
 
 func TestRunClosesIncidentsOfRemovedTargets(t *testing.T) {
 	url, _ := fakeAnthropic(t)
-	path, dbPath := writeConfig(t, "anthropic", url, 5)
+	var hook syncBuffer
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(&hook, r.Body)
+	}))
+	t.Cleanup(srv.Close)
+	path, dbPath := writeConfig(t, "anthropic", url, 5, "notify: {webhook: "+srv.URL+"/hook}")
+
 	db, err := store.Open(t.Context(), dbPath)
 	if err != nil {
 		t.Fatal(err)
@@ -233,13 +242,20 @@ func TestRunClosesIncidentsOfRemovedTargets(t *testing.T) {
 
 	var logs syncBuffer
 	stop := startRun(t, path, &logs)
-	waitFor(t, "the first probe", func() bool { return strings.Contains(logs.String(), "probe done") })
+	waitFor(t, "the first probe and the webhook", func() bool {
+		return strings.Contains(logs.String(), "probe done") && hook.String() != ""
+	})
 	if err := stop(); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{`"msg":"incident closed"`, `"target":"removed"`, `"resolved":false`, `"close_cause":"target removed from config"`} {
 		if !strings.Contains(logs.String(), want) {
 			t.Errorf("logs are missing %s:\n%s", want, logs.String())
+		}
+	}
+	for _, want := range []string{`"event":"closed"`, `"resolved":false`, `closed without resolution`} {
+		if !strings.Contains(hook.String(), want) {
+			t.Errorf("webhook is missing %s: %s", want, hook.String())
 		}
 	}
 }

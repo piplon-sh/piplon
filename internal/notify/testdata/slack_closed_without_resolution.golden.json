@@ -1,0 +1,40 @@
+{
+  "attachments": [
+    {
+      "color": "#8A8A85",
+      "fallback": "piplon · incident #12 on anthropic-direct closed without resolution\nReason: target removed from config · was down since 2026-11-03 09:02 UTC",
+      "blocks": [
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*⚪ anthropic-direct: incident closed without resolution*"
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Cause*\nthe key was rejected: check its value, its permissions and the account's billing"
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Measured*\n`turn 1: http 401: authentication_error: invalid x-api-key`"
+          }
+        },
+        {
+          "type": "context",
+          "elements": [
+            {
+              "type": "mrkdwn",
+              "text": "#12 · standard-v1 · 26 h 00 min · 2026-11-03 09:02 → 2026-11-04 11:02 UTC · target removed from config"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/piplon-sh/piplon/internal/analyze"
 	"github.com/piplon-sh/piplon/internal/config"
+	"github.com/piplon-sh/piplon/internal/notify"
 	"github.com/piplon-sh/piplon/internal/probe"
 	"github.com/piplon-sh/piplon/internal/scenario"
 	"github.com/piplon-sh/piplon/internal/store"
@@ -70,12 +71,13 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 	budget := probe.NewBudget(cfg.Budget.DailyUSD)
 	budget.Seed(spent)
 
-	// Retention must stop before the deferred Close.
+	// Retention and the dispatcher must stop before the deferred Close.
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	wg.Go(func() { db.RunRetention(ctx, time.Duration(cfg.Store.Retention), retentionEvery, log) })
 
-	an := analyze.New(db, sc.ID(), sc.Cache.ExpectHitFromTurn, nil)
+	disp := notify.NewDispatcher(db, log, channels(cfg.Notify, log)...)
+	an := analyze.New(db, sc.ID(), sc.Cache.ExpectHitFromTurn, disp.Names())
 	names := make([]string, len(jobs))
 	for i, j := range jobs {
 		names[i] = j.Target
@@ -87,6 +89,8 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 	if err != nil {
 		return err
 	}
+	wg.Go(func() { disp.Run(ctx) })
+
 	sched := &probe.Scheduler{
 		Scenario:    sc,
 		Jobs:        jobs,
@@ -100,6 +104,9 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 				return
 			}
 			st := observe(ctx, an, log, o)
+			if st.Event != "" {
+				disp.Wake()
+			}
 			if view != nil {
 				view.update(ctx, o, st)
 			}
@@ -184,6 +191,22 @@ func record(ctx context.Context, db store.Store, log *slog.Logger, o probe.Outco
 		return
 	}
 	log.Info("probe done", attrs...)
+}
+
+// channels returns the configured notification channels. Discord is
+// validated by config but not sent to yet.
+func channels(n config.Notify, log *slog.Logger) []notify.Channel {
+	var out []notify.Channel
+	if n.Slack != "" {
+		out = append(out, notify.Slack{URL: n.Slack})
+	}
+	if n.Webhook != "" {
+		out = append(out, notify.Webhook{URL: n.Webhook})
+	}
+	if n.Discord != "" {
+		log.Warn("notify.discord is not supported yet and is ignored")
+	}
+	return out
 }
 
 // observe judges one outcome and logs a confirmed change of state.

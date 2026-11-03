@@ -1,0 +1,40 @@
+{
+  "attachments": [
+    {
+      "color": "#D9480F",
+      "fallback": "piplon · anthropic-direct is down\nProbable cause: the key was rejected: check its value, its permissions and the account's billing\nMeasured: turn 1: http 401: authentication_error: invalid x-api-key\nIncident #12 · standard-v1 · opened 2026-11-03 09:02 UTC",
+      "blocks": [
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*🔴 anthropic-direct is down*"
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Cause*\nthe key was rejected: check its value, its permissions and the account's billing"
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Measured*\n`turn 1: http 401: authentication_error: invalid x-api-key`"
+          }
+        },
+        {
+          "type": "context",
+          "elements": [
+            {
+              "type": "mrkdwn",
+              "text": "#12 · standard-v1 · since 2026-11-03 09:02 UTC"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

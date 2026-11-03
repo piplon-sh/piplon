@@ -1,0 +1,40 @@
+{
+  "attachments": [
+    {
+      "color": "#D98B0F",
+      "fallback": "piplon · anthropic-direct is now slow\nProbable cause: slower than usual at this time: the provider or the path to it is degraded\nMeasured: TTFT 2400 ms, usually 1100 ms\nIncident #12 · standard-v1 · open since 2026-11-03 09:02 UTC",
+      "blocks": [
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*🟠 anthropic-direct is slow*"
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Cause*\nslower than usual at this time: the provider or the path to it is degraded"
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Measured*\n`TTFT 2400 ms, usually 1100 ms`"
+          }
+        },
+        {
+          "type": "context",
+          "elements": [
+            {
+              "type": "mrkdwn",
+              "text": "#12 · standard-v1 · since 2026-11-03 09:02 UTC"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
