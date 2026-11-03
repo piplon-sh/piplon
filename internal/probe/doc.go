@@ -23,7 +23,9 @@
 // it has at least 8 characters, and anything key-like (sk-, sk-ant-, gsk_,
 // xai-, AIza prefixes, and masked fragments such as ****Ab12) are replaced
 // with [redacted], in provider messages before they are cut to length and in
-// transport errors.
+// transport errors. A transport error names its cause (DNS, TLS, refused
+// connection), never the request URL, whose path may carry a gateway's
+// account or token.
 //
 // OpenAI is the adapter for OpenAI-compatible Chat Completions endpoints
 // (OpenAI, OpenRouter, Groq, Together, LiteLLM, vLLM, Ollama's OpenAI API).
