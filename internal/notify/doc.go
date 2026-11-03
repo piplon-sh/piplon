@@ -1,5 +1,5 @@
-// Package notify delivers incident events from the store's outbox to Slack
-// and webhooks.
+// Package notify delivers incident events from the store's outbox to Slack,
+// Discord and webhooks.
 //
 // A Channel has a Name, used in the outbox and the logs and never secret,
 // and Sends one store.Notification. Slack posts to an incoming webhook one
@@ -18,6 +18,14 @@
 // nearest minute and durations are the difference of the rounded times. &, <
 // and > are escaped. Incoming webhooks cannot thread, so every message names
 // its incident number.
+//
+// Discord posts to a Discord webhook one embed laid out from the same card as
+// the Slack message: the state's colour, the title with its emoji, a Cause
+// field and a full-width Measured field as inline code, or a resolution's one
+// line as the description, and the same footer. It sends no content, which
+// Discord would print above the embed, and disables mentions, so an
+// "@everyone" quoted in a provider message pings nobody. Markdown characters
+// are escaped and every part is cut to Discord's embed limits.
 //
 // Webhook posts a "piplon.incident.v1" JSON document: the notification id, stable across retries because delivery is
 // at least once, the event, its time, Text, and the incident as the event

@@ -1,0 +1,26 @@
+{
+  "embeds": [
+    {
+      "title": "⚪ anthropic-direct: incident closed without resolution",
+      "color": 9079429,
+      "fields": [
+        {
+          "name": "Cause",
+          "value": "the key was rejected: check its value, its permissions and the account's billing",
+          "inline": false
+        },
+        {
+          "name": "Measured",
+          "value": "`turn 1: http 401: authentication_error: invalid x-api-key`",
+          "inline": false
+        }
+      ],
+      "footer": {
+        "text": "#12 · standard-v1 · 26 h 00 min · 2026-11-03 09:02 → 2026-11-04 11:02 UTC · target removed from config"
+      }
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  }
+}
