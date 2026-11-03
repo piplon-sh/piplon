@@ -75,7 +75,7 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 	defer wg.Wait()
 	wg.Go(func() { db.RunRetention(ctx, time.Duration(cfg.Store.Retention), retentionEvery, log) })
 
-	an := analyze.New(db, sc.ID(), sc.Cache.ExpectHitFromTurn)
+	an := analyze.New(db, sc.ID(), sc.Cache.ExpectHitFromTurn, nil)
 	names := make([]string, len(jobs))
 	for i, j := range jobs {
 		names[i] = j.Target

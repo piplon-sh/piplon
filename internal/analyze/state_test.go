@@ -140,7 +140,7 @@ func TestAnalyzerLearnsFromTheStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a := New(db, "standard-v1", 2)
+	a := New(db, "standard-v1", 2, nil)
 	if st, _ := a.Observe(t.Context(), outcome(turn(1000*ms, 0), turn(1000*ms, 4000), turn(1000*ms, 4000))); st.State != OK {
 		t.Fatalf("first probe: got %+v", st)
 	}
@@ -178,7 +178,7 @@ func (brokenStore) Samples(context.Context, store.Query) ([]store.Sample, error)
 }
 
 func TestAnalyzerSurvivesAStoreError(t *testing.T) {
-	a := New(brokenStore{}, "standard-v1", 2)
+	a := New(brokenStore{}, "standard-v1", 2, nil)
 	st, err := a.Observe(t.Context(), outcome(probe.Turn{Error: "timeout"}))
 	if err == nil || st.State != Down {
 		t.Errorf("got %+v and %v, want the probe judged and the error returned", st, err)
