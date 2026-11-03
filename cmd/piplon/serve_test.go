@@ -62,6 +62,10 @@ func TestRunServesTheEndpointsWhenListenIsSet(t *testing.T) {
 		_, body := fetch(t, base+"/metrics")
 		return strings.Contains(body, want[0]) && strings.Contains(body, want[1])
 	})
+	if code, body := fetch(t, base+"/api/v1/targets"); code != http.StatusOK || !strings.Contains(body, `"state": "ok"`) ||
+		strings.Contains(body, "sk-test-key") {
+		t.Errorf("/api/v1/targets: got %d:\n%s", code, body)
+	}
 	if code, _ := fetch(t, base+"/readyz"); code != http.StatusOK {
 		t.Errorf("/readyz: got %d, want 200", code)
 	}

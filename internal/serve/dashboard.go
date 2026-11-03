@@ -99,6 +99,7 @@ func addDashboard(mux *http.ServeMux, db store.Store, m *metrics, mu *sync.Mutex
 	d := &dashboard{db: db, m: m, mu: mu, opts: opts}
 	mux.HandleFunc("GET /{$}", d.render("page"))
 	mux.HandleFunc("GET /live", d.render("live"))
+	addAPI(mux, d)
 	files := http.StripPrefix("/assets/", http.FileServerFS(assets))
 	mux.HandleFunc("GET /assets/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/") {
@@ -126,14 +127,14 @@ func addDashboard(mux *http.ServeMux, db store.Store, m *metrics, mu *sync.Mutex
 // view it had.
 func (d *dashboard) render(name string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		v, err := d.view(r.Context())
+		snap, err := d.snapshot(r.Context(), func(now time.Time) time.Time { return now.Add(-incidentWindow) })
 		if err != nil {
 			d.opts.Log.Error("dashboard not read from the store", "err", err)
 			http.Error(w, "store not readable", http.StatusServiceUnavailable)
 			return
 		}
 		var buf bytes.Buffer
-		if err := templates.ExecuteTemplate(&buf, name, v); err != nil {
+		if err := templates.ExecuteTemplate(&buf, name, viewOf(snap)); err != nil {
 			d.opts.Log.Error("dashboard not rendered", "err", err)
 			http.Error(w, "dashboard not rendered", http.StatusInternalServerError)
 			return
@@ -144,23 +145,25 @@ func (d *dashboard) render(name string) http.HandlerFunc {
 	}
 }
 
-// view reads what the page shows. The metrics refresh gives the target
-// states and the day's spend, the same figure as piplon_budget_spent_usd.
-func (d *dashboard) view(ctx context.Context) (view, error) {
+// snapshot reads what the dashboard and the API show, once, with the
+// incidents open at sinceOf(now) or after. The metrics refresh gives the
+// target states and the day's spend, the same figure as
+// piplon_budget_spent_usd.
+func (d *dashboard) snapshot(ctx context.Context, sinceOf func(now time.Time) time.Time) (snapshot, error) {
 	d.mu.Lock()
 	err := d.m.refresh(ctx)
 	states, spent, now := slices.Clone(d.m.states), d.m.spent, d.m.now
 	d.mu.Unlock()
 	if err != nil {
-		return view{}, err
+		return snapshot{}, err
 	}
+	snap := snapshot{Now: now, Since: sinceOf(now), DailyUSD: d.opts.DailyUSD, SpentUSD: spent}
 	samples, err := d.db.Samples(ctx, store.Query{Since: now.Add(-recentWindow)})
 	if err != nil {
-		return view{}, err
+		return snapshot{}, err
 	}
-	incidents, err := d.db.Incidents(ctx, now.Add(-incidentWindow))
-	if err != nil {
-		return view{}, err
+	if snap.Incidents, err = d.db.Incidents(ctx, snap.Since); err != nil {
+		return snapshot{}, err
 	}
 	byTarget := map[string][]store.Sample{}
 	for _, s := range samples {
@@ -170,36 +173,13 @@ func (d *dashboard) view(ctx context.Context) (view, error) {
 	for _, s := range states {
 		stateOf[s.Target] = s
 	}
-
-	v := view{Clock: now.UTC().Format("15:04") + " UTC", Updated: "no probe yet",
-		Spent: fmt.Sprintf("%.2f", spent), Daily: fmt.Sprintf("%.2f", d.opts.DailyUSD)}
-	var latest time.Time
 	for _, t := range d.opts.Targets {
-		ts, probed := stateOf[t.Name]
-		if !probed {
-			v.Targets = append(v.Targets, targetRow{Name: t.Name, State: "…", Class: "pending",
-				TTFT: "-", Err: "-", Cache: "-", Last: "-"})
-			continue
+		ts := targetSnap{Name: t.Name, Format: t.Format, Model: t.Model,
+			Recent: analyze.Summarize(byTarget[t.Name], d.opts.CacheFrom)}
+		if state, probed := stateOf[t.Name]; probed {
+			ts.State = &state
 		}
-		if ts.Last.After(latest) {
-			latest = ts.Last
-		}
-		sum := analyze.Summarize(byTarget[t.Name], d.opts.CacheFrom)
-		v.Targets = append(v.Targets, targetRow{Name: t.Name, State: ts.State, Class: class(ts.State),
-			TTFT: millis(sum.TTFT), Err: percent(sum), Cache: sum.Cache, Last: ago(ts.Last, now)})
-		if ts.State != string(analyze.OK) {
-			v.Problems = append(v.Problems, problem{Target: t.Name, State: ts.State, Class: class(ts.State),
-				Cause: ts.Cause, Since: "since " + since(ts.Since, now)})
-		}
+		snap.Targets = append(snap.Targets, ts)
 	}
-	if v.Probed = !latest.IsZero(); v.Probed {
-		v.Updated = "updated " + ago(latest, now)
-	}
-	slices.SortStableFunc(v.Problems, func(a, b problem) int {
-		return slices.Index(analyze.States, analyze.State(b.State)) - slices.Index(analyze.States, analyze.State(a.State))
-	})
-	for _, inc := range incidents {
-		v.Incidents = append(v.Incidents, incidentRowOf(inc, now))
-	}
-	return v, nil
+	return snap, nil
 }

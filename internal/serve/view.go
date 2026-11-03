@@ -2,12 +2,31 @@ package serve
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/piplon-sh/piplon/internal/analyze"
 	"github.com/piplon-sh/piplon/internal/store"
 )
+
+// snapshot is what the dashboard and the API show, read once from the store:
+// the dashboard formats it, the API encodes it.
+type snapshot struct {
+	Now                time.Time
+	DailyUSD, SpentUSD float64
+	Targets            []targetSnap // in config order
+	Since              time.Time    // the incidents are those open at Since or after
+	Incidents          []store.Incident
+}
+
+// targetSnap is one configured target. It holds only what may be shown:
+// never the key nor the URL.
+type targetSnap struct {
+	Name, Format, Model string
+	State               *store.TargetState // nil before its first probe
+	Recent              analyze.Recent     // the last hour
+}
 
 // view is what the dashboard shows. Every string is final text; the
 // templates only lay it out, and html/template escapes it.
@@ -114,4 +133,39 @@ func percent(r analyze.Recent) string {
 		return "-"
 	}
 	return fmt.Sprintf("%.1f %%", r.ErrPct)
+}
+
+// viewOf formats a snapshot for the dashboard.
+func viewOf(snap snapshot) view {
+	now := snap.Now
+	v := view{Clock: now.UTC().Format("15:04") + " UTC", Updated: "no probe yet",
+		Spent: fmt.Sprintf("%.2f", snap.SpentUSD), Daily: fmt.Sprintf("%.2f", snap.DailyUSD)}
+	var latest time.Time
+	for _, t := range snap.Targets {
+		ts := t.State
+		if ts == nil {
+			v.Targets = append(v.Targets, targetRow{Name: t.Name, State: "…", Class: "pending",
+				TTFT: "-", Err: "-", Cache: "-", Last: "-"})
+			continue
+		}
+		if ts.Last.After(latest) {
+			latest = ts.Last
+		}
+		v.Targets = append(v.Targets, targetRow{Name: t.Name, State: ts.State, Class: class(ts.State),
+			TTFT: millis(t.Recent.TTFT), Err: percent(t.Recent), Cache: t.Recent.Cache, Last: ago(ts.Last, now)})
+		if ts.State != string(analyze.OK) {
+			v.Problems = append(v.Problems, problem{Target: t.Name, State: ts.State, Class: class(ts.State),
+				Cause: ts.Cause, Since: "since " + since(ts.Since, now)})
+		}
+	}
+	if v.Probed = !latest.IsZero(); v.Probed {
+		v.Updated = "updated " + ago(latest, now)
+	}
+	slices.SortStableFunc(v.Problems, func(a, b problem) int {
+		return slices.Index(analyze.States, analyze.State(b.State)) - slices.Index(analyze.States, analyze.State(a.State))
+	})
+	for _, inc := range snap.Incidents {
+		v.Incidents = append(v.Incidents, incidentRowOf(inc, now))
+	}
+	return v
 }

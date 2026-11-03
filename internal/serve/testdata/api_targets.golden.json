@@ -1,0 +1,69 @@
+{
+  "api_version": "v1",
+  "generated_at": "2026-11-03T09:10:12Z",
+  "budget": {
+    "daily_usd": 5,
+    "spent_today_usd": 0.022166
+  },
+  "targets": [
+    {
+      "name": "a",
+      "format": "anthropic",
+      "model": "claude-sonnet-4-5",
+      "scenario": "standard-v1",
+      "state": "ok",
+      "since": "2026-11-02T07:14:00Z",
+      "cause": null,
+      "incident_id": null,
+      "last_probe": {
+        "at": "2026-11-03T09:10:00Z",
+        "state": "ok",
+        "detail": null
+      },
+      "last_hour": {
+        "probes": 2,
+        "error_ratio": 0,
+        "ttft_p50_seconds": 0.4,
+        "cache": "hit"
+      }
+    },
+    {
+      "name": "b",
+      "format": "openai",
+      "model": "gpt-4.1",
+      "scenario": "standard-v1",
+      "state": "down",
+      "since": "2026-11-03T08:46:00Z",
+      "cause": "the key was rejected: check its value, its permissions and the account's billing",
+      "incident_id": 4,
+      "last_probe": {
+        "at": "2026-11-03T09:09:00Z",
+        "state": "down",
+        "detail": "turn 1: http 401: invalid x-api-key"
+      },
+      "last_hour": {
+        "probes": 1,
+        "error_ratio": 1,
+        "ttft_p50_seconds": null,
+        "cache": null
+      }
+    },
+    {
+      "name": "c",
+      "format": "ollama",
+      "model": "llama3.2",
+      "scenario": null,
+      "state": null,
+      "since": null,
+      "cause": null,
+      "incident_id": null,
+      "last_probe": null,
+      "last_hour": {
+        "probes": 0,
+        "error_ratio": null,
+        "ttft_p50_seconds": null,
+        "cache": null
+      }
+    }
+  ]
+}

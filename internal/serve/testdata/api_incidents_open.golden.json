@@ -1,0 +1,21 @@
+{
+  "api_version": "v1",
+  "generated_at": "2026-11-03T09:10:12Z",
+  "since": "2026-10-27T09:10:12Z",
+  "incidents": [
+    {
+      "id": 4,
+      "target": "b",
+      "scenario": "standard-v1",
+      "status": "open",
+      "state": "down",
+      "cause": "the key was rejected: check its value, its permissions and the account's billing",
+      "detail": "turn 1: http 401: invalid x-api-key",
+      "opened_at": "2026-11-03T08:48:00Z",
+      "updated_at": "2026-11-03T08:48:00Z",
+      "closed_at": null,
+      "close_cause": null,
+      "duration_seconds": 1332
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "api_version": "v1",
+  "generated_at": "2026-11-03T09:10:12Z",
+  "since": "2026-10-27T09:10:12Z",
+  "incidents": [
+    {
+      "id": 4,
+      "target": "b",
+      "scenario": "standard-v1",
+      "status": "open",
+      "state": "down",
+      "cause": "the key was rejected: check its value, its permissions and the account's billing",
+      "detail": "turn 1: http 401: invalid x-api-key",
+      "opened_at": "2026-11-03T08:48:00Z",
+      "updated_at": "2026-11-03T08:48:00Z",
+      "closed_at": null,
+      "close_cause": null,
+      "duration_seconds": 1332
+    },
+    {
+      "id": 3,
+      "target": "old",
+      "scenario": "standard-v1",
+      "status": "closed",
+      "state": "down",
+      "cause": "the key was rejected",
+      "detail": null,
+      "opened_at": "2026-11-03T06:00:00Z",
+      "updated_at": "2026-11-03T06:00:00Z",
+      "closed_at": "2026-11-03T07:00:00Z",
+      "close_cause": "target removed from config",
+      "duration_seconds": 3600
+    },
+    {
+      "id": 2,
+      "target": "a",
+      "scenario": "standard-v1",
+      "status": "resolved",
+      "state": "errors",
+      "cause": "the provider is overloaded",
+      "detail": "turn 2: http 529: overloaded_error: Overloaded",
+      "opened_at": "2026-11-02T07:00:00Z",
+      "updated_at": "2026-11-02T07:00:00Z",
+      "closed_at": "2026-11-02T07:14:00Z",
+      "close_cause": "back to ok for 3 probes in a row",
+      "duration_seconds": 840
+    }
+  ]
+}

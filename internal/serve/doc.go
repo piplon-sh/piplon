@@ -59,5 +59,29 @@
 // The Go runtime and process collectors are included. No label carries an
 // error message or an incident ID, so the number of series stays bounded.
 //
+// /api/v1/targets and /api/v1/incidents answer JSON from the same snapshot
+// the dashboard renders, so the two never disagree. The v1 contract only
+// grows: fields are added, never renamed, removed or retyped, and every field
+// is present, null when it has no value. Times are RFC 3339 in UTC to the
+// second, durations integer seconds (TTFT in seconds with milliseconds).
+//
+//   - /api/v1/targets: api_version, generated_at, budget (daily_usd,
+//     spent_today_usd) and, per configured target in config order, name,
+//     format, model, scenario, state, since, cause, incident_id, last_probe
+//     (at, state, detail) and last_hour (probes, error_ratio from 0 to 1,
+//     ttft_p50_seconds, cache: hit, miss or n/a). A target never probed has
+//     null in place of its state.
+//   - /api/v1/incidents: api_version, generated_at, since, and the incidents
+//     open at since or after, newest first: id, target, scenario, status
+//     (open, resolved, or closed for an administrative close), state, cause,
+//     detail, opened_at, updated_at, closed_at, close_cause and
+//     duration_seconds, up to generated_at while open. ?since= takes an RFC
+//     3339 time or a duration back from now (90m, 24h, 7d), 7 days by
+//     default; ?state=open keeps the open ones.
+//
+// Bad parameters are a 400 and an unreadable store a 503, both with
+// {"error": "..."}. The handler is given the targets' names, formats and
+// models to show, never their keys or URLs, and no webhook URL.
+//
 // Serve serves a handler on a listener until its context is cancelled.
 package serve
