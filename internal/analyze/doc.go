@@ -35,7 +35,10 @@
 // Status applies hysteresis. The first probe's verdict sets State at once, so
 // a bad key shows as down after one probe; after that, State changes only
 // after Confirm (3) probes in a row agree on the new one, to open as well as
-// to close, and until then the candidate is Pending with its Count. The first
+// to close, and until then the candidate is Pending with its Count. Since is
+// when State began: the first probe, or the first of the Confirm probes that
+// confirmed it. Cause is the probable cause from the latest probe judged
+// State. The first
 // State is not reported as a change. Hard reports the failure states.
 // Failing counts hard failures in a row, of any state; Confirming is true
 // while it is between 1 and Confirm, when the scheduler probes again after
@@ -55,7 +58,17 @@
 // closed as resolved. Status.Event and Status.Incident report what the latest
 // probe did. Each event is queued, in the same transaction, for the channels
 // given to New. A store error leaves the incident as it was and the next
-// probe tries again. Restore, at start, resumes the open incidents of configured
-// targets, which start in the incident's state, and closes the others as
-// "target removed from config", never resolved.
+// probe tries again.
+//
+// Every probe also saves the target's state in the store: State, Since and
+// Cause, the latest probe's verdict and detail, and the open incident. When
+// the probe changes the incident, that write is in the same transaction.
+//
+// Restore, at start, resumes what the store kept. A configured target with a
+// stored state starts in it, Since included, so a restart does not reset it;
+// its streak starts over, so an incident still waits for Confirm probes in a
+// row. Open incidents of configured targets resume, and a target with one but
+// no stored state starts in the incident's state. The other targets'
+// incidents are closed as "target removed from config", never resolved, and
+// their states deleted.
 package analyze

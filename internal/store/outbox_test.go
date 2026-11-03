@@ -35,15 +35,15 @@ func TestIncidentEventsAreQueuedPerChannel(t *testing.T) {
 	opened := time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)
 	inc := Incident{Target: "a", Scenario: "standard-v1", State: "down", Cause: "the key was rejected", Opened: opened}
 	var err error
-	if inc.ID, err = db.OpenIncident(ctx, inc, channels); err != nil {
+	if inc.ID, err = db.OpenIncident(ctx, inc, channels, nil); err != nil {
 		t.Fatal(err)
 	}
 	inc.State, inc.Updated = "errors", opened.Add(time.Minute)
-	if err := db.UpdateIncident(ctx, inc, channels); err != nil {
+	if err := db.UpdateIncident(ctx, inc, channels, nil); err != nil {
 		t.Fatal(err)
 	}
 	inc.Closed, inc.CloseCause, inc.Resolved = opened.Add(time.Hour), "back to ok", true
-	if err := db.CloseIncident(ctx, inc, channels); err != nil {
+	if err := db.CloseIncident(ctx, inc, channels, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -74,10 +74,10 @@ func TestAFailedChangeQueuesNothing(t *testing.T) {
 	db, _ := openTemp(t)
 	ctx := t.Context()
 	inc := Incident{ID: 42, Target: "a", State: "errors", Updated: time.Now(), Closed: time.Now()}
-	if err := db.UpdateIncident(ctx, inc, channels); err == nil {
+	if err := db.UpdateIncident(ctx, inc, channels, nil); err == nil {
 		t.Fatal("updated an incident that does not exist")
 	}
-	if err := db.CloseIncident(ctx, inc, channels); err == nil {
+	if err := db.CloseIncident(ctx, inc, channels, nil); err == nil {
 		t.Fatal("closed an incident that does not exist")
 	}
 	if due, _ := db.Due(ctx, time.Now().Add(time.Hour), 10); len(due) != 0 {
@@ -89,7 +89,7 @@ func TestDeliveryAndRetry(t *testing.T) {
 	db, _ := openTemp(t)
 	ctx := t.Context()
 	now := time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)
-	if _, err := db.OpenIncident(ctx, Incident{Target: "a", State: "down", Opened: now}, channels); err != nil {
+	if _, err := db.OpenIncident(ctx, Incident{Target: "a", State: "down", Opened: now}, channels, nil); err != nil {
 		t.Fatal(err)
 	}
 	due, _ := db.Due(ctx, now, 10)
@@ -120,14 +120,14 @@ func TestAnIncidentsEventsGoInOrderPerChannel(t *testing.T) {
 	now := time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)
 	inc := Incident{Target: "a", State: "down", Opened: now}
 	var err error
-	if inc.ID, err = db.OpenIncident(ctx, inc, []string{"slack"}); err != nil {
+	if inc.ID, err = db.OpenIncident(ctx, inc, []string{"slack"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	inc.Closed, inc.Resolved = now.Add(time.Minute), true
-	if err := db.CloseIncident(ctx, inc, []string{"slack"}); err != nil {
+	if err := db.CloseIncident(ctx, inc, []string{"slack"}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.OpenIncident(ctx, Incident{Target: "b", State: "down", Opened: now}, []string{"slack"}); err != nil {
+	if _, err := db.OpenIncident(ctx, Incident{Target: "b", State: "down", Opened: now}, []string{"slack"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	due, _ := db.Due(ctx, now.Add(time.Hour), 10)

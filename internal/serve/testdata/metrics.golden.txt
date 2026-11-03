@@ -51,6 +51,26 @@ piplon_responses_total{code="none",scenario="standard-v1",target="b",turn="1"} 1
 # HELP piplon_stream_cuts_total Turns whose stream closed before its end.
 # TYPE piplon_stream_cuts_total counter
 piplon_stream_cuts_total{scenario="standard-v1",target="a",turn="3"} 1
+# HELP piplon_target_state 1 for the target's current state, 0 for the others, as piplon run judges it after hysteresis.
+# TYPE piplon_target_state gauge
+piplon_target_state{scenario="standard-v1",state="cache_miss",target="a"} 0
+piplon_target_state{scenario="standard-v1",state="cache_miss",target="b"} 0
+piplon_target_state{scenario="standard-v1",state="down",target="a"} 0
+piplon_target_state{scenario="standard-v1",state="down",target="b"} 1
+piplon_target_state{scenario="standard-v1",state="errors",target="a"} 0
+piplon_target_state{scenario="standard-v1",state="errors",target="b"} 0
+piplon_target_state{scenario="standard-v1",state="gone",target="a"} 0
+piplon_target_state{scenario="standard-v1",state="gone",target="b"} 0
+piplon_target_state{scenario="standard-v1",state="ok",target="a"} 1
+piplon_target_state{scenario="standard-v1",state="ok",target="b"} 0
+piplon_target_state{scenario="standard-v1",state="refused",target="a"} 0
+piplon_target_state{scenario="standard-v1",state="refused",target="b"} 0
+piplon_target_state{scenario="standard-v1",state="slow",target="a"} 0
+piplon_target_state{scenario="standard-v1",state="slow",target="b"} 0
+# HELP piplon_target_state_since_seconds When the target's current state began, in Unix seconds.
+# TYPE piplon_target_state_since_seconds gauge
+piplon_target_state_since_seconds{scenario="standard-v1",target="a"} 1.7936928e+09
+piplon_target_state_since_seconds{scenario="standard-v1",target="b"} 1.79369568e+09
 # HELP piplon_tokens_total Tokens reported by the provider, by kind; input counts uncached input only.
 # TYPE piplon_tokens_total counter
 piplon_tokens_total{kind="cache_read",scenario="standard-v1",target="a"} 7600

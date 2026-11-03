@@ -60,11 +60,11 @@ func TestClassify(t *testing.T) {
 func TestFirstProbeSetsTheState(t *testing.T) {
 	for _, first := range []State{OK, Down} {
 		var s Status
-		s.observe(Verdict{State: first})
+		s.observe(Verdict{State: first}, monday)
 		if s.State != first || s.Pending != "" || s.Changed {
 			t.Errorf("first probe %s: got %+v, want state %s at once, not reported as a change", first, s, first)
 		}
-		s.observe(Verdict{State: Errors})
+		s.observe(Verdict{State: Errors}, monday)
 		if s.State != first || s.Pending != Errors || s.Count != 1 {
 			t.Errorf("after first probe %s: got %+v, want hysteresis on the next change", first, s)
 		}
@@ -90,7 +90,7 @@ func TestStatusNeedsThreeInARow(t *testing.T) {
 		{OK, Errors, OK, false},
 		{OK, OK, "", true},
 	} {
-		s.observe(Verdict{State: tt.seen})
+		s.observe(Verdict{State: tt.seen}, monday)
 		if s.State != tt.state || s.Pending != tt.pending || s.Changed != tt.changed {
 			t.Fatalf("probe %d (%s): got %+v, want state %s pending %q changed %v", i+1, tt.seen, s, tt.state, tt.pending, tt.changed)
 		}
@@ -111,7 +111,7 @@ func TestConfirmingUntilThreeHardFailures(t *testing.T) {
 		{Refused, true},
 		{OK, false},
 	} {
-		s.observe(Verdict{State: tt.seen})
+		s.observe(Verdict{State: tt.seen}, monday)
 		if s.Confirming() != tt.confirming {
 			t.Fatalf("probe %d (%s): confirming=%v, want %v (%+v)", i+1, tt.seen, !tt.confirming, tt.confirming, s)
 		}
@@ -170,11 +170,15 @@ func TestAnalyzerLearnsFromTheStore(t *testing.T) {
 	}
 }
 
-// brokenStore fails every read.
+// brokenStore fails every read and write the analyzer makes on a probe.
 type brokenStore struct{ store.Store }
 
 func (brokenStore) Samples(context.Context, store.Query) ([]store.Sample, error) {
 	return nil, errors.New("disk I/O error")
+}
+
+func (brokenStore) SaveTargetState(context.Context, store.TargetState) error {
+	return errors.New("disk I/O error")
 }
 
 func TestAnalyzerSurvivesAStoreError(t *testing.T) {

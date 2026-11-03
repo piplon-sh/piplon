@@ -60,11 +60,11 @@ func setup(t *testing.T, channels []string, sinks ...Channel) (*Dispatcher, *sto
 	db := openStore(t)
 	inc := incident()
 	var err error
-	if inc.ID, err = db.OpenIncident(t.Context(), inc, channels); err != nil {
+	if inc.ID, err = db.OpenIncident(t.Context(), inc, channels, nil); err != nil {
 		t.Fatal(err)
 	}
 	inc.Closed, inc.CloseCause, inc.Resolved = opened.Add(10*time.Minute), "back to ok for 3 probes in a row", true
-	if err := db.CloseIncident(t.Context(), inc, channels); err != nil {
+	if err := db.CloseIncident(t.Context(), inc, channels, nil); err != nil {
 		t.Fatal(err)
 	}
 	now := opened.Add(11 * time.Minute)
