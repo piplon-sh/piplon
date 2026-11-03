@@ -17,6 +17,7 @@ next to them in `recorded/`, see below.
 | `content_filter_categories.sse` | the same after partial text, with Azure-style `content_filter_results` |
 | `stream_cut.sse` | a stream that ends without `data: [DONE]` |
 | `rate_limited_429.json` | the error body returned with HTTP 429 |
+| `invalid_key_401.json` | the error body returned with HTTP 401, which quotes a masked key with its last characters |
 | `request_turn1.golden.json` | the exact request body of turn 1 |
 | `request_turn3.golden.json` | the exact request body of turn 3, with history |
 

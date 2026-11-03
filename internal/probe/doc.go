@@ -19,7 +19,11 @@
 // "tool call instead of text" and ends the conversation. A reply that stops
 // with stop_reason "refusal" is recorded as "refused", or "refused: <category>"
 // from stop_details.category, never as an empty reply; it ends the
-// conversation too. Errors never contain the key.
+// conversation too. Errors never contain the key: the target's own key, when
+// it has at least 8 characters, and anything key-like (sk-, sk-ant-, gsk_,
+// xai-, AIza prefixes, and masked fragments such as ****Ab12) are replaced
+// with [redacted], in provider messages before they are cut to length and in
+// transport errors.
 //
 // OpenAI is the adapter for OpenAI-compatible Chat Completions endpoints
 // (OpenAI, OpenRouter, Groq, Together, LiteLLM, vLLM, Ollama's OpenAI API).

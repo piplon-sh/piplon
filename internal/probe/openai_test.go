@@ -106,6 +106,11 @@ func TestOpenAIFailures(t *testing.T) {
 			turns:   1, status: 429, providerError: "rate_limit_exceeded", errContains: "Rate limit reached",
 		},
 		{
+			name:    "http 401 quotes a masked key, which is redacted",
+			replies: []reply{{status: 401, fixture: "invalid_key_401.json"}},
+			turns:   1, status: 401, providerError: "invalid_api_key", errContains: "Incorrect API key provided: [redacted]. You can find",
+		},
+		{
 			name:    "error chunk mid-stream falls back to the error type",
 			replies: []reply{{status: 200, fixture: "stream_error.sse"}},
 			turns:   1, status: 200, providerError: "server_error", errContains: "had an error",

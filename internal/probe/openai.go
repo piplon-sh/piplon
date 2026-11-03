@@ -86,6 +86,7 @@ func (o *OpenAI) Probe(ctx context.Context, s *scenario.Scenario) Result {
 	for _, st := range s.Turns {
 		msgs = append(msgs, openaiMessage{Role: st.Role, Content: st.Content})
 		turn, reply := o.turn(ctx, s, msgs)
+		turn.Error = redact(turn.Error, o.Key) // transport errors too
 		turn.ExpectOK = turn.Error == "" && strings.Contains(reply, st.Expect.Contains)
 		res.Turns = append(res.Turns, turn)
 		if turn.Error != "" {
@@ -132,11 +133,11 @@ func (o *OpenAI) turn(ctx context.Context, s *scenario.Scenario, msgs []openaiMe
 	defer func() { _ = resp.Body.Close() }()
 	turn.HTTPStatus = resp.StatusCode
 	if resp.StatusCode != http.StatusOK {
-		readHTTPError(resp, &turn)
+		readHTTPError(resp, &turn, o.Key)
 		turn.Total = time.Since(turn.Start)
 		return turn, ""
 	}
-	reply := readOpenAIStream(ctx, resp.Body, &turn, wrote)
+	reply := readOpenAIStream(ctx, resp.Body, &turn, wrote, o.Key)
 	turn.Total = time.Since(turn.Start)
 	return turn, reply
 }
@@ -144,7 +145,7 @@ func (o *OpenAI) turn(ctx context.Context, s *scenario.Scenario, msgs []openaiMe
 // readOpenAIStream fills turn from the chunk stream and returns the text.
 // TTFT stops at the first chunk carrying content or a tool call, not at the
 // role-only chunk servers send first.
-func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote func() time.Time) string {
+func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote func() time.Time, key config.Secret) string {
 	var text strings.Builder
 	var gotDelta, done, toolCall, refused bool
 	var filtered []string
@@ -160,7 +161,7 @@ func readOpenAIStream(ctx context.Context, body io.Reader, turn *Turn, wrote fun
 		}
 		if ch.Error != nil {
 			turn.ProviderError = ch.Error.kind()
-			turn.Error = providerMessage(ch.Error.kind(), ch.Error.Message)
+			turn.Error = providerMessage(ch.Error.kind(), ch.Error.Message, key)
 			return false
 		}
 		for _, c := range ch.Choices {
