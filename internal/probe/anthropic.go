@@ -95,6 +95,7 @@ func (a *Anthropic) Probe(ctx context.Context, s *scenario.Scenario) Result {
 		}
 		msgs = append(msgs, anthropicMessage{Role: st.Role, Content: []anthropicText{user}})
 		turn, reply := a.turn(ctx, s, msgs)
+		turn.Error = redact(turn.Error, a.Key) // transport errors too
 		turn.ExpectOK = turn.Error == "" && strings.Contains(reply, st.Expect.Contains)
 		res.Turns = append(res.Turns, turn)
 		if turn.Error != "" {
@@ -141,17 +142,17 @@ func (a *Anthropic) turn(ctx context.Context, s *scenario.Scenario, msgs []anthr
 	defer func() { _ = resp.Body.Close() }()
 	turn.HTTPStatus = resp.StatusCode
 	if resp.StatusCode != http.StatusOK {
-		readHTTPError(resp, &turn)
+		readHTTPError(resp, &turn, a.Key)
 		turn.Total = time.Since(turn.Start)
 		return turn, ""
 	}
-	reply := readAnthropicStream(ctx, resp.Body, &turn, wrote)
+	reply := readAnthropicStream(ctx, resp.Body, &turn, wrote, a.Key)
 	turn.Total = time.Since(turn.Start)
 	return turn, reply
 }
 
 // readAnthropicStream fills turn from the event stream and returns the text.
-func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote func() time.Time) string {
+func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote func() time.Time, key config.Secret) string {
 	var text strings.Builder
 	var gotDelta, done, toolUse, refused bool
 	var category string
@@ -184,7 +185,7 @@ func readAnthropicStream(ctx context.Context, body io.Reader, turn *Turn, wrote 
 			return false
 		case "error":
 			turn.ProviderError = ev.Error.kind()
-			turn.Error = providerMessage(ev.Error.kind(), ev.Error.Message)
+			turn.Error = providerMessage(ev.Error.kind(), ev.Error.Message, key)
 			return false
 		}
 		return true

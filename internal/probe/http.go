@@ -9,10 +9,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/piplon-sh/piplon/internal/config"
 	"github.com/piplon-sh/piplon/internal/version"
 )
 
@@ -95,7 +97,7 @@ func (e apiError) kind() string {
 }
 
 // readHTTPError records a non-200 answer.
-func readHTTPError(resp *http.Response, turn *Turn) {
+func readHTTPError(resp *http.Response, turn *Turn, key config.Secret) {
 	var body struct {
 		Error apiError `json:"error"`
 	}
@@ -105,10 +107,32 @@ func readHTTPError(resp *http.Response, turn *Turn) {
 		return
 	}
 	turn.ProviderError = body.Error.kind()
-	turn.Error = fmt.Sprintf("http %d: %s", resp.StatusCode, providerMessage(body.Error.kind(), body.Error.Message))
+	turn.Error = fmt.Sprintf("http %d: %s", resp.StatusCode, providerMessage(body.Error.kind(), body.Error.Message, key))
 }
 
-func providerMessage(kind, msg string) string {
+// keyLike matches what a provider message may quote of a key: a whole key
+// by its known prefix, masked or not (sk-, sk-ant-, sk-proj-, gsk_, xai-,
+// AIza), or a masked fragment with the characters it leaves visible.
+var keyLike = regexp.MustCompile(`(?:sk-|gsk_|xai-|AIza)[A-Za-z0-9_*-]{6,}|\*{4,}[A-Za-z0-9_-]*`)
+
+// minRedactedKey is the shortest key replaced by its exact value; a shorter
+// one could match ordinary words of a message.
+const minRedactedKey = 8
+
+// redact replaces the target's key, by its exact value, and anything
+// key-like in s.
+func redact(s string, key config.Secret) string {
+	if k := key.Reveal(); len(k) >= minRedactedKey {
+		s = strings.ReplaceAll(s, k, "[redacted]")
+	}
+	return keyLike.ReplaceAllString(s, "[redacted]")
+}
+
+// providerMessage names a provider error. The message is redacted before it
+// is cut to length, so a cut cannot leave part of a key unmatched: it goes to
+// logs, the store and notifications.
+func providerMessage(kind, msg string, key config.Secret) string {
+	msg = redact(msg, key)
 	if r := []rune(msg); len(r) > maxErrorMessage {
 		msg = string(r[:maxErrorMessage]) + "…"
 	}
