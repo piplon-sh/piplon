@@ -19,7 +19,9 @@
 // Defaults: scenario standard-v1, interval 5m (10s..1h, overridable per
 // target), timeout 30s (1s..5m), jitter 5s (below interval), concurrency 4
 // (1..64), budget.daily_usd 5.00 (> 0), store.path ./piplon.db,
-// store.retention 90d (>= 1d).
+// store.retention 90d (>= 1d). serve.listen is empty by default: piplon run
+// serves its HTTP endpoints only when it is set, and piplon serve then uses
+// DefaultListen (127.0.0.1:9464).
 //
 // Each target may set price (USD per million tokens: input, output,
 // cache_read, cache_write, all >= 0). Without a price block a target gets

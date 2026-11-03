@@ -45,6 +45,8 @@ type Query struct {
 type Store interface {
 	Insert(ctx context.Context, samples ...Sample) error
 	Samples(ctx context.Context, q Query) ([]Sample, error)
+	SamplesAfter(ctx context.Context, id int64) ([]Sample, error)
+	LatestProbes(ctx context.Context) ([]Sample, error)
 	Prune(ctx context.Context, cutoff time.Time) (int64, error)
 	OpenIncident(ctx context.Context, inc Incident, channels []string) (int64, error)
 	UpdateIncident(ctx context.Context, inc Incident, channels []string) error
@@ -54,6 +56,8 @@ type Store interface {
 	Delivered(ctx context.Context, id int64, at time.Time) error
 	Failed(ctx context.Context, id int64, next time.Time, reason string) error
 	Abandon(ctx context.Context, id int64, at time.Time, reason string) error
+	Outbox(ctx context.Context) ([]ChannelOutbox, error)
+	Ping(ctx context.Context) error
 	Close() error
 }
 
@@ -84,6 +88,16 @@ func Open(ctx context.Context, path string) (*DB, error) {
 
 // Close releases the database.
 func (db *DB) Close() error { return db.sql.Close() }
+
+// Ping reads the schema version, which needs the database file to be there
+// and readable; a pooled connection alone does not prove that.
+func (db *DB) Ping(ctx context.Context) error {
+	var v int
+	if err := db.sql.QueryRowContext(ctx, "PRAGMA user_version").Scan(&v); err != nil {
+		return fmt.Errorf("ping: %w", err)
+	}
+	return nil
+}
 
 const insertSQL = `INSERT INTO samples (
 	probe_id, ts_ms, target, scenario, turn, ttft_us, total_us,
@@ -135,9 +149,7 @@ func (db *DB) Samples(ctx context.Context, q Query) ([]Sample, error) {
 	if !q.Until.IsZero() {
 		where, args = append(where, "ts_ms < ?"), append(args, q.Until.UnixMilli())
 	}
-	query := `SELECT id, probe_id, ts_ms, target, scenario, turn, ttft_us, total_us,
-		input_tokens, output_tokens, http_status, provider_error, error,
-		stream_cut, cache_read_tokens, cache_write_tokens, expect_ok FROM samples`
+	query := selectSamples
 	if len(where) > 0 {
 		// Only constant fragments are joined; every value is a bound parameter.
 		query += " WHERE " + strings.Join(where, " AND ") //nolint:gosec // see above
@@ -146,7 +158,28 @@ func (db *DB) Samples(ctx context.Context, q Query) ([]Sample, error) {
 	if q.Limit > 0 {
 		query, args = query+" LIMIT ?", append(args, q.Limit)
 	}
+	return db.samples(ctx, query, args...)
+}
 
+const selectSamples = `SELECT id, probe_id, ts_ms, target, scenario, turn, ttft_us, total_us,
+	input_tokens, output_tokens, http_status, provider_error, error,
+	stream_cut, cache_read_tokens, cache_write_tokens, expect_ok FROM samples`
+
+// SamplesAfter returns the samples whose ID is above id, in ID order. A
+// probe's turns are inserted in one transaction, so a probe is either
+// entirely in the result or not at all.
+func (db *DB) SamplesAfter(ctx context.Context, id int64) ([]Sample, error) {
+	return db.samples(ctx, selectSamples+" WHERE id > ? ORDER BY id", id)
+}
+
+// LatestProbes returns every turn of each target's most recently stored
+// probe, in ID order.
+func (db *DB) LatestProbes(ctx context.Context) ([]Sample, error) {
+	return db.samples(ctx, selectSamples+` WHERE probe_id IN (SELECT probe_id FROM samples
+		WHERE id IN (SELECT MAX(id) FROM samples GROUP BY target)) ORDER BY id`)
+}
+
+func (db *DB) samples(ctx context.Context, query string, args ...any) ([]Sample, error) {
 	rows, err := db.sql.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query samples: %w", err)

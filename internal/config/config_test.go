@@ -43,6 +43,7 @@ func TestParseMinimalAppliesDefaults(t *testing.T) {
 		{"concurrency", cfg.Concurrency, 4},
 		{"budget", cfg.Budget.DailyUSD, 5.00},
 		{"store.path", cfg.Store.Path, "./piplon.db"},
+		{"serve.listen", cfg.Serve.Listen, ""},
 		{"store.retention", cfg.Store.Retention, Duration(90 * 24 * time.Hour)},
 		{"target interval", cfg.Targets[0].Interval, 5 * time.Minute},
 		{"target key", cfg.Targets[0].Key.Reveal(), "sk-test"},
@@ -317,6 +318,12 @@ func TestParseErrors(t *testing.T) {
 			yaml:    target(okTarget) + "notify:\n  slack: ${SLACK_WEBHOOK}\n",
 			wantErr: ErrMissingEnv,
 			wantMsg: "notify: slack: environment variable SLACK_WEBHOOK is not set",
+		},
+		{
+			name:    "serve listen without a port",
+			yaml:    target(okTarget) + "serve:\n  listen: localhost\n",
+			wantErr: ErrInvalid,
+			wantMsg: `serve.listen: "localhost" is not a host:port address`,
 		},
 		{
 			name:    "notify url invalid",

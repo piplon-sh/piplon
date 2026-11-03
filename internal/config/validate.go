@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"io/fs"
+	"net"
 	"net/url"
 	"regexp"
 	"strings"
@@ -103,6 +104,11 @@ func validate(cfg *Config) []error {
 			add("notify", n.field, invalid("must be an http or https URL with a host"))
 		}
 	}
+	if cfg.Serve.Listen != "" {
+		if err := CheckListen(cfg.Serve.Listen); err != nil {
+			add("", "serve.listen", err)
+		}
+	}
 	if len(cfg.Targets) == 0 {
 		add("", "targets", required("at least one target is required"))
 	}
@@ -193,6 +199,15 @@ func checkTarget(t Target, cfg *Config, names map[string]int) []problem {
 		add("region", required("is required for format %s", t.Format))
 	}
 	return ps
+}
+
+// CheckListen accepts a host:port to listen on, such as 127.0.0.1:9464 or
+// :9464; the --listen flag goes through it too.
+func CheckListen(addr string) error {
+	if _, port, err := net.SplitHostPort(addr); err != nil || port == "" {
+		return invalid("%q is not a host:port address", addr)
+	}
+	return nil
 }
 
 func checkInterval(d time.Duration) error {

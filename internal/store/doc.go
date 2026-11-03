@@ -14,7 +14,9 @@
 // tokens or 50 ms of generation, where the figure would be noise.
 //
 // Insert writes a batch atomically, Samples reads with optional target and
-// time window filters, Prune deletes samples older than a cutoff, and
+// time window filters, SamplesAfter reads the samples stored after a given ID
+// so a reader can follow new probes, LatestProbes returns each target's most
+// recent probe, Ping checks the database is readable, Prune deletes samples older than a cutoff, and
 // RunRetention prunes once at start and then on every tick until its context
 // is cancelled.
 //
@@ -37,7 +39,8 @@
 // the pending notifications whose next attempt has come, never one behind a
 // pending earlier event of the same incident and channel. Delivered marks one
 // sent, Failed counts an attempt and sets the next one, and Abandon gives up
-// on one, which lets the next event of that incident through.
+// on one, which lets the next event of that incident through. Outbox counts
+// each channel's notifications by status, with the oldest pending one.
 //
 // Store is the interface the rest of piplon depends on; *DB is its SQLite
 // implementation.

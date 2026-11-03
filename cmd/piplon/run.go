@@ -71,9 +71,13 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 	budget := probe.NewBudget(cfg.Budget.DailyUSD)
 	budget.Seed(spent)
 
-	// Retention and the dispatcher must stop before the deferred Close.
+	// Retention, the dispatcher and the HTTP endpoints must stop before the
+	// deferred Close.
 	var wg sync.WaitGroup
 	defer wg.Wait()
+	// Deferred after Wait so it runs first: an error return stops them too.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	wg.Go(func() { db.RunRetention(ctx, time.Duration(cfg.Store.Retention), retentionEvery, log) })
 
 	disp := notify.NewDispatcher(db, log, channels(cfg.Notify)...)
@@ -88,6 +92,17 @@ func run(ctx context.Context, path string, log *slog.Logger, view *liveTable) er
 	}
 	if err != nil {
 		return err
+	}
+	if cfg.Serve.Listen != "" {
+		serveHTTP, err := listenHTTP(ctx, db, cfg, sc, cfg.Serve.Listen, log)
+		if err != nil {
+			return err
+		}
+		wg.Go(func() {
+			if err := serveHTTP(ctx); err != nil {
+				log.Error("http endpoints stopped", "err", err)
+			}
+		})
 	}
 	wg.Go(func() { disp.Run(ctx) })
 
