@@ -87,9 +87,15 @@ func handler(t *testing.T, db store.Store, now *time.Time) http.Handler {
 
 func get(t *testing.T, h http.Handler, path string) (int, string) {
 	t.Helper()
+	rec := getRecorder(t, h, path)
+	return rec.Code, rec.Body.String()
+}
+
+func getRecorder(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {
+	t.Helper()
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
-	return rec.Code, rec.Body.String()
+	return rec
 }
 
 // piplonLines keeps the piplon_ series and their HELP and TYPE lines, which

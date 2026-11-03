@@ -56,35 +56,13 @@ func (r *row) apply(o probe.Outcome, st analyze.Status) {
 	}
 }
 
-// applyStats sets TTFT, ErrPct and Probes from the last hour of samples. A
-// refusal is a state of its own, not an error. A miss on a target that read
-// no cache all hour shows as n/a: it never cached, it did not stop.
+// applyStats sets TTFT, ErrPct and Probes from the last hour of samples,
+// summed up as the dashboard does. A miss on a target that read no cache all
+// hour shows as n/a: it never cached, it did not stop.
 func (r *row) applyStats(samples []store.Sample) {
-	failed := map[string]bool{}
-	var ttfts []time.Duration
-	cached := false
-	for _, s := range samples {
-		cached = cached || s.CacheReadTokens > 0
-		bad := (s.Error != "" && !(probe.Turn{Error: s.Error}).Refused()) || (s.Error == "" && !s.ExpectOK)
-		failed[s.ProbeID] = failed[s.ProbeID] || bad
-		if s.Error == "" && s.TTFT > 0 {
-			ttfts = append(ttfts, s.TTFT)
-		}
-	}
-	r.Probes, r.ErrPct, r.TTFT = len(failed), 0, 0
-	for _, f := range failed {
-		if f {
-			r.ErrPct++
-		}
-	}
-	if r.Probes > 0 {
-		r.ErrPct = 100 * r.ErrPct / float64(r.Probes)
-	}
-	if len(ttfts) > 0 {
-		slices.Sort(ttfts)
-		r.TTFT = ttfts[len(ttfts)/2]
-	}
-	if r.Cache == "miss" && !cached {
+	sum := analyze.Summarize(samples, 0)
+	r.Probes, r.ErrPct, r.TTFT = sum.Probes, sum.ErrPct, sum.TTFT
+	if r.Cache == "miss" && !sum.Cached {
 		r.Cache = "n/a"
 	}
 }

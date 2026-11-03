@@ -31,7 +31,8 @@ type Options struct {
 	Now       func() time.Time // nil uses time.Now
 }
 
-// Handler returns the mux for /metrics, /healthz and /readyz, reading db.
+// Handler returns the mux for the dashboard, /metrics, /healthz and
+// /readyz, reading db.
 // It reads the store once before returning, so a store it cannot read is an
 // error at start.
 func Handler(ctx context.Context, db store.Store, opts Options) (http.Handler, error) {
@@ -47,9 +48,12 @@ func Handler(ctx context.Context, db store.Store, opts Options) (http.Handler, e
 	}
 	m.reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	expose := promhttp.HandlerFor(m.reg, promhttp.HandlerOpts{})
-	var mu sync.Mutex // one scrape at a time: a refresh moves the cursor
+	var mu sync.Mutex // one refresh at a time: it moves the cursor
 
 	mux := http.NewServeMux()
+	if err := addDashboard(mux, db, m, &mu, opts); err != nil {
+		return nil, err
+	}
 	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -71,7 +75,18 @@ func Handler(ctx context.Context, db store.Store, opts Options) (http.Handler, e
 		}
 		_, _ = fmt.Fprintln(w, "ok")
 	})
-	return mux, nil
+	return secure(mux), nil
+}
+
+// secure sets headers that keep every page to its own origin: no script,
+// style, font or frame from anywhere else, and no inline script.
+func secure(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		h.ServeHTTP(w, r)
+	})
 }
 
 // Serve serves h on ln until ctx is cancelled, then waits up to 2 s for

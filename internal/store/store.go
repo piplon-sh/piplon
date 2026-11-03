@@ -52,6 +52,7 @@ type Store interface {
 	UpdateIncident(ctx context.Context, inc Incident, channels []string, state *TargetState) error
 	CloseIncident(ctx context.Context, inc Incident, channels []string, state *TargetState) error
 	OpenIncidents(ctx context.Context) ([]Incident, error)
+	Incidents(ctx context.Context, since time.Time) ([]Incident, error)
 	SaveTargetState(ctx context.Context, ts TargetState) error
 	TargetStates(ctx context.Context) ([]TargetState, error)
 	ForgetTargets(ctx context.Context, keep []string) error

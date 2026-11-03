@@ -1,0 +1,56 @@
+{{define "live" -}}
+<main id="live" hx-get="/live" hx-trigger="every 10s" hx-swap="outerHTML">
+<header class="top">
+  <span class="brand"><span class="mark" aria-hidden="true"></span>piplon</span>
+  <span class="meta mono">{{.Clock}} · {{.Updated}} · {{.Spent}} of {{.Daily}} USD today</span>
+</header>
+{{if .Problems -}}
+<section class="card banner" aria-label="Status">
+  {{range .Problems -}}
+  <div class="problem">
+    <h1><span class="dot {{.Class}}" aria-hidden="true"></span>{{.Target}} is {{.State}}</h1>
+    <p>{{if .Cause}}{{.Cause}} · {{end}}<span class="mono">{{.Since}}</span></p>
+  </div>
+  {{- end}}
+</section>
+{{- else if .Probed -}}
+<section class="card banner calm" aria-label="Status">
+  <h1><span class="dot ok" aria-hidden="true"></span>All targets operating normally</h1>
+</section>
+{{- else -}}
+<section class="card banner calm" aria-label="Status">
+  <h1><span class="dot pending" aria-hidden="true"></span>Waiting for the first probe</h1>
+</section>
+{{- end}}
+<section class="card" aria-labelledby="targets">
+  <h2 id="targets" class="label">Targets</h2>
+  <div class="scroll">
+  <table class="targets">
+    <thead><tr><th>Target</th><th>State</th><th class="num">TTFT p50</th><th class="num">Err 1h</th><th>Cache</th><th class="num">Last</th></tr></thead>
+    <tbody>
+    {{- range .Targets}}
+      <tr><td class="mono">{{.Name}}</td><td class="mono"><span class="dot {{.Class}}" aria-hidden="true"></span>{{.State}}</td><td class="num mono">{{.TTFT}}</td><td class="num mono">{{.Err}}</td><td class="mono">{{.Cache}}</td><td class="num mono">{{.Last}}</td></tr>
+    {{- end}}
+    </tbody>
+  </table>
+  </div>
+</section>
+<section class="card" aria-labelledby="incidents">
+  <h2 id="incidents" class="label">Incidents · 7 days</h2>
+  {{if .Incidents -}}
+  <div class="scroll">
+  <table class="incidents">
+    <thead><tr><th>When</th><th>Target</th><th>What we measured</th><th class="num">Duration</th><th>State</th></tr></thead>
+    <tbody>
+    {{- range .Incidents}}
+      <tr><td class="mono"><span class="ref">{{.ID}}</span> {{.When}}</td><td class="mono">{{.Target}}</td><td>{{.Cause}}{{if .Detail}}<div class="detail mono">{{.Detail}}</div>{{end}}</td><td class="num mono">{{.Duration}}</td><td class="mono"><span class="dot {{.Class}}" aria-hidden="true"></span>{{.State}}</td></tr>
+    {{- end}}
+    </tbody>
+  </table>
+  </div>
+  {{- else -}}
+  <p class="empty">No incident in the last 7 days.</p>
+  {{- end}}
+</section>
+</main>
+{{- end}}

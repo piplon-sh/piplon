@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -64,5 +65,44 @@ func TestAdministrativeCloseIsNotResolved(t *testing.T) {
 	}
 	if got, _ := db.incident(ctx, id); got.Resolved || got.CloseCause != "target removed from config" || got.Closed.IsZero() {
 		t.Errorf("got %+v", got)
+	}
+}
+
+func TestIncidentsSinceKeepsOpenAndRecentlyClosedNewestFirst(t *testing.T) {
+	db, _ := openTemp(t)
+	ctx := t.Context()
+	now := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
+	week := now.Add(-7 * 24 * time.Hour)
+	add := func(target string, opened, closed time.Time) {
+		t.Helper()
+		inc := Incident{Target: target, Scenario: "standard-v1", State: "down", Opened: opened}
+		id, err := db.OpenIncident(ctx, inc, nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !closed.IsZero() {
+			inc.ID, inc.Closed, inc.CloseCause, inc.Resolved = id, closed, "back to ok", true
+			if err := db.CloseIncident(ctx, inc, nil, nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	add("old", week.Add(-2*time.Hour), week.Add(-time.Hour))    // closed before the window
+	add("long", week.Add(-24*time.Hour), time.Time{})           // opened before, still open
+	add("straddles", week.Add(-time.Hour), week.Add(time.Hour)) // closed inside the window
+	add("recent", now.Add(-time.Hour), now.Add(-30*time.Minute))
+	got, err := db.Incidents(ctx, week)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, inc := range got {
+		names = append(names, inc.Target)
+	}
+	if strings.Join(names, ",") != "recent,straddles,long" {
+		t.Errorf("got %v, want recent, straddles, long", names)
+	}
+	if !got[0].Resolved || got[0].CloseCause != "back to ok" || !got[0].Closed.Equal(now.Add(-30*time.Minute)) {
+		t.Errorf("close not read back: %+v", got[0])
 	}
 }

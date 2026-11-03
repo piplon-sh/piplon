@@ -23,7 +23,8 @@
 // An Incident is one episode of a target out of ok. A target has at most one
 // open incident, enforced by a partial unique index. OpenIncident stores it,
 // UpdateIncident follows its state and cause while open, CloseIncident closes
-// it with a close cause and Resolved, and OpenIncidents lists the open ones.
+// it with a close cause and Resolved, OpenIncidents lists the open ones, and
+// Incidents those open at some point since a given time, newest first.
 // Resolved is true only when the target came back to ok: an administrative
 // close, such as a target removed from the config, is not a resolution and
 // must never be announced as one. Updating or closing an incident that is not

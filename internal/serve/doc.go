@@ -2,8 +2,22 @@
 // store, so piplon serve can run beside piplon run on the same database, and
 // piplon run can serve the same endpoints itself.
 //
-// Handler returns the mux for three endpoints:
+// Handler returns the mux for the dashboard and three endpoints:
 //
+//   - / is the dashboard, rendered on the server with html/template: a top
+//     bar (UTC clock, age of the latest probe, the day's spend against
+//     budget.daily_usd), a banner naming each target not ok, most severe
+//     first, with its cause and since when, the targets table (state, TTFT
+//     p50, error share and cache over the last hour, as analyze.Summarize
+//     computes them for the terminal, and the latest probe's age), and the
+//     incidents of the last 7 days. An open incident shows its state, a
+//     closed one resolved, or closed for an administrative close.
+//   - /live is the part of the page that changes; htmx swaps it in every
+//     10 s. A store it cannot read is a 503, which htmx does not swap in.
+//   - /assets/ serves the stylesheet, htmx 2.0.11, the mark and IBM Plex
+//     Sans and Mono (Latin-1, SIL Open Font License, fonts/OFL.txt), all
+//     embedded in the binary: nothing is loaded from elsewhere, and every
+//     response sets a Content-Security-Policy of 'self'.
 //   - /healthz answers 200 while the process runs.
 //   - /readyz answers 200 when the store is readable, 503 otherwise. It does
 //     not depend on how recent the probes are, so a stopped piplon run never
