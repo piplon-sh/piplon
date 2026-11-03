@@ -8,6 +8,10 @@
 //
 //	target anthropic-direct: key: environment variable ANTHROPIC_API_KEY is not set
 //
+// LoadTargets and ParseTargets keep only the named targets, for piplon
+// check --target: the others need no environment variable, and only their
+// names are checked.
+//
 // Errors wrap ErrMissingEnv, ErrRequired or ErrInvalid. Unknown fields are
 // rejected so a typo never silently disables a setting.
 //

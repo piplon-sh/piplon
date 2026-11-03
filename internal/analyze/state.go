@@ -62,7 +62,7 @@ func Classify(o probe.Outcome, base Stats, learned bool, cacheFrom int) Verdict 
 	if v.State != OK || !learned {
 		return v
 	}
-	if ttft := middle(o.Turns); float64(ttft) > max(float64(base.TTFT95), slowFactor*float64(base.TTFT50)) {
+	if ttft := TTFT(o.Turns); float64(ttft) > max(float64(base.TTFT95), slowFactor*float64(base.TTFT50)) {
 		v.State, v.Cause = Slow, causeSlow
 		v.Detail = fmt.Sprintf("TTFT %d ms, usually %d ms", ttft.Milliseconds(), base.TTFT50.Milliseconds())
 		return v
@@ -111,8 +111,9 @@ func cacheState(turns []probe.Turn, cacheFrom int) string {
 	return state
 }
 
-// middle is the median TTFT of the turns, the probe TTFT Learn uses.
-func middle(turns []probe.Turn) time.Duration {
+// TTFT is a probe's TTFT: the median of its turns', the figure Learn and
+// Classify use.
+func TTFT(turns []probe.Turn) time.Duration {
 	ttfts := make([]time.Duration, len(turns))
 	for i, t := range turns {
 		ttfts[i] = t.TTFT

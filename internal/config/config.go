@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -98,12 +99,16 @@ func defaults() *Config {
 
 // Load reads and resolves the config file at path, expanding ${VAR} from the
 // process environment.
-func Load(path string) (*Config, error) {
+func Load(path string) (*Config, error) { return LoadTargets(path, nil) }
+
+// LoadTargets is Load keeping only the named targets, in config order; nil
+// keeps them all. See ParseTargets.
+func LoadTargets(path string, names []string) (*Config, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // the path is chosen by the operator
 	if err != nil {
 		return nil, fmt.Errorf("config: %w", err)
 	}
-	cfg, err := Parse(data, os.LookupEnv)
+	cfg, err := ParseTargets(data, os.LookupEnv, names)
 	if err != nil {
 		return nil, fmt.Errorf("config %s: %w", path, err)
 	}
@@ -113,11 +118,37 @@ func Load(path string) (*Config, error) {
 // Parse resolves a config from YAML bytes. lookup resolves ${VAR} references;
 // pass os.LookupEnv in production.
 func Parse(data []byte, lookup func(string) (string, bool)) (*Config, error) {
+	return ParseTargets(data, lookup, nil)
+}
+
+// ParseTargets is Parse keeping only the named targets, in config order; nil
+// keeps them all. The others are dropped before their ${VAR} references are
+// expanded, so their variables need not be set, and only their names are
+// checked: unique, and valid for compare_with. A name not in the config is
+// an error.
+func ParseTargets(data []byte, lookup func(string) (string, bool), names []string) (*Config, error) {
 	cfg := defaults()
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	if err := dec.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
+	}
+	var dropped []Target
+	if names != nil {
+		var kept []Target
+		for _, t := range cfg.Targets {
+			if slices.Contains(names, t.Name) {
+				kept = append(kept, t)
+			} else {
+				dropped = append(dropped, t)
+			}
+		}
+		for _, n := range names {
+			if !slices.ContainsFunc(kept, func(t Target) bool { return t.Name == n }) {
+				return nil, fieldErr(targetScope(0, n), "name", invalid("is not in the config"))
+			}
+		}
+		cfg.Targets = kept
 	}
 	errs := expandAll(cfg, lookup)
 	for i := range cfg.Targets {
@@ -135,7 +166,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (*Config, error) {
 			cfg.Targets[i].Price = &p
 		}
 	}
-	errs = append(errs, validate(cfg)...)
+	errs = append(errs, validate(cfg, dropped)...)
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
